@@ -42,12 +42,8 @@ const filteredClosedPositions = computed(() => {
 });
 
 async function refreshData(): Promise<void> {
-  await Promise.all([
-    metricsStore.fetchMetrics(),
-    positionsStore.fetchPositions(),
-    positionsStore.fetchClosedPositions(),
-    positionsStore.triggerSettlement(),
-  ]);
+  await positionsStore.triggerSettlement();
+  await metricsStore.fetchMetrics();
   lastSyncTime.value = new Date().toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",

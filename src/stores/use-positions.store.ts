@@ -85,6 +85,9 @@ export const usePositionsStore = defineStore("positions", () => {
   }
 
   async function triggerSettlement(): Promise<{ settledCount: number; message: string }> {
+    if (isSettling.value) {
+      return { settledCount: 0, message: "Vérification déjà en cours" };
+    }
     isSettling.value = true;
     try {
       const res = await api.settlePositions();
