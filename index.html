@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Polymarket Copy-Trading | Terminal Financier</title>
+    <!-- Script Anti-FOUC immédiat pour le thème -->
+    <script>
+      (function() {
+        const pref = localStorage.getItem('pm_theme_preference') || 'system';
+        const isDark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
+            },
+            colors: {
+              polymarket: {
+                blue: '#0066FF',
+                dark: '#0B0E14',
+                card: '#121721',
+                border: '#1E2638',
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        transition: background-color 0.2s ease, color 0.2s ease;
+      }
+      html.dark body {
+        background-color: #07090e;
+        color: #f1f5f9;
+      }
+      html:not(.dark) body {
+        background-color: #f8fafc;
+        color: #0f172a;
+      }
+      .font-mono {
+        font-family: '"JetBrains Mono"', monospace;
+      }
+      /* Custom scrollbar - Dark Mode */
+      html.dark ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      html.dark ::-webkit-scrollbar-track {
+        background: #0f172a;
+      }
+      html.dark ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 3px;
+      }
+      html.dark ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+      /* Custom scrollbar - Light Mode */
+      html:not(.dark) ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      html:not(.dark) ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      html:not(.dark) ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+      html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased selection:bg-blue-600 selection:text-white">
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
