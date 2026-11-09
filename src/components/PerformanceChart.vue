@@ -201,14 +201,14 @@ function handleMouseLeave() {
 </script>
 
 <template>
-  <div class="bg-[#121721] border border-slate-800/80 rounded-xl overflow-hidden p-6 relative">
+  <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden p-6 relative shadow-xs transition-colors">
     <!-- Header Graphique -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800/80">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800/80">
       <div>
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
+        <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <span>📈</span> Courbe de Performance & Suivi des Trades (Baleine vs Copie)
         </h3>
-        <p class="text-xs text-slate-400 mt-0.5">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Évolution en temps réel de votre capital (1 000 $ base), vos gains copiés et les trades répliqués
         </p>
       </div>
@@ -218,7 +218,7 @@ function handleMouseLeave() {
         <!-- Filtre Baleine -->
         <select
           v-model="selectedWhaleAddress"
-          class="bg-[#0B0E14] border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 font-mono"
+          class="bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500 font-mono shadow-xs"
         >
           <option value="ALL">Toutes les Baleines</option>
           <option
@@ -231,17 +231,19 @@ function handleMouseLeave() {
         </select>
 
         <!-- Toggles de Séries -->
-        <div class="flex items-center gap-1.5 bg-[#0B0E14] p-1 rounded-lg border border-slate-800 text-xs">
+        <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-[#0B0E14] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
           <!-- Capital Portefeuille -->
           <button
             type="button"
             @click="showPortfolioValue = !showPortfolioValue"
             :class="[
-              'px-2.5 py-1 rounded text-[11px] font-medium transition flex items-center gap-1.5',
-              showPortfolioValue ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-slate-500'
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              showPortfolioValue
+                ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 font-semibold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-sky-400 inline-block"></span>
+            <span class="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 inline-block"></span>
             Capital Portefeuille
           </button>
 
@@ -250,11 +252,13 @@ function handleMouseLeave() {
             type="button"
             @click="showMyCumulativePnl = !showMyCumulativePnl"
             :class="[
-              'px-2.5 py-1 rounded text-[11px] font-medium transition flex items-center gap-1.5',
-              showMyCumulativePnl ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500'
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              showMyCumulativePnl
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 inline-block"></span>
             Mes Gains Copiés
           </button>
 
@@ -263,11 +267,13 @@ function handleMouseLeave() {
             type="button"
             @click="showWhaleVolume = !showWhaleVolume"
             :class="[
-              'px-2.5 py-1 rounded text-[11px] font-medium transition flex items-center gap-1.5',
-              showWhaleVolume ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-slate-500'
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              showWhaleVolume
+                ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 font-semibold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-purple-400 inline-block"></span>
+            <span class="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400 inline-block"></span>
             Volume Baleine
           </button>
 
@@ -276,11 +282,13 @@ function handleMouseLeave() {
             type="button"
             @click="showTradeMarkers = !showTradeMarkers"
             :class="[
-              'px-2.5 py-1 rounded text-[11px] font-medium transition flex items-center gap-1.5',
-              showTradeMarkers ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500'
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              showTradeMarkers
+                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-semibold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+            <span class="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 inline-block"></span>
             Trades
           </button>
         </div>
@@ -453,55 +461,57 @@ function handleMouseLeave() {
       <!-- Tooltip Flottant Interactif -->
       <div
         v-if="hoveredPoint"
-        class="absolute pointer-events-none z-20 bg-[#0B0E14]/95 border border-slate-700/80 rounded-xl p-3.5 shadow-2xl backdrop-blur text-xs font-mono space-y-1.5 min-w-[240px]"
+        class="absolute pointer-events-none z-20 bg-white/95 dark:bg-[#0B0E14]/95 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur text-xs font-mono space-y-1.5 min-w-[240px] text-slate-800 dark:text-slate-100 transition-colors"
         :style="{
           left: `${Math.min(width - 250, Math.max(20, getX(hoveredPoint.timestamp) - 120))}px`,
           top: `10px`,
         }"
       >
-        <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 text-slate-400 text-[11px]">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5 text-slate-500 dark:text-slate-400 text-[11px]">
           <span>{{ new Date(hoveredPoint.timestamp).toLocaleTimeString('fr-FR') }}</span>
           <span
             v-if="hoveredPoint.side"
             :class="[
               'px-1.5 py-0.5 rounded font-bold uppercase text-[10px]',
-              hoveredPoint.side === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+              hoveredPoint.side === 'BUY'
+                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
             ]"
           >
             {{ hoveredPoint.side === 'BUY' ? 'Achat Copié' : 'Vente Copiée' }}
           </span>
         </div>
 
-        <div v-if="hoveredPoint.targetAlias" class="text-slate-200">
-          <span class="text-slate-400">Baleine :</span>
-          <span class="font-bold text-blue-400 ml-1.5">{{ hoveredPoint.targetAlias }}</span>
+        <div v-if="hoveredPoint.targetAlias" class="text-slate-700 dark:text-slate-200">
+          <span class="text-slate-500 dark:text-slate-400">Baleine :</span>
+          <span class="font-bold text-blue-600 dark:text-blue-400 ml-1.5">{{ hoveredPoint.targetAlias }}</span>
         </div>
 
-        <div v-if="hoveredPoint.shares" class="text-slate-200">
-          <span class="text-slate-400">Parts :</span>
-          <span class="font-bold text-white ml-1.5">{{ hoveredPoint.shares.toFixed(1) }} parts</span>
-          <span class="text-slate-400 ml-1">@ ${{ (hoveredPoint.price ?? 0).toFixed(3) }}</span>
+        <div v-if="hoveredPoint.shares" class="text-slate-700 dark:text-slate-200">
+          <span class="text-slate-500 dark:text-slate-400">Parts :</span>
+          <span class="font-bold text-slate-900 dark:text-white ml-1.5">{{ hoveredPoint.shares.toFixed(1) }} parts</span>
+          <span class="text-slate-500 dark:text-slate-400 ml-1">@ ${{ (hoveredPoint.price ?? 0).toFixed(3) }}</span>
         </div>
 
-        <div v-if="hoveredPoint.costUsdc" class="text-slate-200">
-          <span class="text-slate-400">Mise :</span>
-          <span class="font-bold text-amber-400 ml-1.5">${{ hoveredPoint.costUsdc.toFixed(2) }} USDC</span>
+        <div v-if="hoveredPoint.costUsdc" class="text-slate-700 dark:text-slate-200">
+          <span class="text-slate-500 dark:text-slate-400">Mise :</span>
+          <span class="font-bold text-amber-600 dark:text-amber-400 ml-1.5">${{ hoveredPoint.costUsdc.toFixed(2) }} USDC</span>
         </div>
 
-        <div v-if="hoveredPoint.shares && hoveredPoint.costUsdc" class="bg-emerald-500/10 border border-emerald-500/20 rounded p-1.5 text-[11px] text-emerald-400">
-          <div>Si gagnant : <strong class="text-white">${{ hoveredPoint.shares.toFixed(2) }} USDC</strong></div>
-          <div class="text-[10px] text-emerald-300">Bénéfice net : +${{ (hoveredPoint.shares - hoveredPoint.costUsdc).toFixed(2) }}</div>
+        <div v-if="hoveredPoint.shares && hoveredPoint.costUsdc" class="bg-emerald-500/10 border border-emerald-500/20 rounded p-1.5 text-[11px] text-emerald-700 dark:text-emerald-400">
+          <div>Si gagnant : <strong class="text-slate-900 dark:text-white">${{ hoveredPoint.shares.toFixed(2) }} USDC</strong></div>
+          <div class="text-[10px] text-emerald-600 dark:text-emerald-300">Bénéfice net : +${{ (hoveredPoint.shares - hoveredPoint.costUsdc).toFixed(2) }}</div>
         </div>
 
-        <div class="border-t border-slate-800/80 pt-1.5 space-y-1">
+        <div class="border-t border-slate-200 dark:border-slate-800/80 pt-1.5 space-y-1">
           <div class="flex justify-between">
-            <span class="text-slate-400">Capital Portefeuille :</span>
-            <span class="font-bold text-sky-400">${{ hoveredPoint.portfolioValueUsdc.toFixed(2) }}</span>
+            <span class="text-slate-500 dark:text-slate-400">Capital Portefeuille :</span>
+            <span class="font-bold text-sky-600 dark:text-sky-400">${{ hoveredPoint.portfolioValueUsdc.toFixed(2) }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-slate-400">PnL Net Copié :</span>
+            <span class="text-slate-500 dark:text-slate-400">PnL Net Copié :</span>
             <span
-              :class="hoveredPoint.myCumulativePnlUsdc >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+              :class="hoveredPoint.myCumulativePnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
               class="font-bold"
             >
               {{ hoveredPoint.myCumulativePnlUsdc >= 0 ? '+' : '' }}${{ hoveredPoint.myCumulativePnlUsdc.toFixed(2) }}
@@ -512,34 +522,34 @@ function handleMouseLeave() {
     </div>
 
     <!-- Légende et Métriques Rapides sous le Graphique -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-800/60 text-xs">
-      <div class="bg-[#0B0E14]/40 p-2.5 rounded-lg border border-slate-800/60">
-        <span class="text-slate-400 text-[11px] block">Capital Actuel</span>
-        <span class="text-sm font-bold font-mono text-white">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800/60 text-xs">
+      <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
+        <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Capital Actuel</span>
+        <span class="text-sm font-bold font-mono text-slate-900 dark:text-white">
           ${{ (1000 - metricsStore.metrics.totalInvestedUsdc + metricsStore.metrics.currentPositionsValueUsdc).toFixed(2) }}
         </span>
       </div>
 
-      <div class="bg-[#0B0E14]/40 p-2.5 rounded-lg border border-slate-800/60">
-        <span class="text-slate-400 text-[11px] block">PnL Latent</span>
+      <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
+        <span class="text-slate-500 dark:text-slate-400 text-[11px] block">PnL Latent</span>
         <span
           class="text-sm font-bold font-mono"
-          :class="metricsStore.metrics.unrealizedPnlUsdc >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+          :class="metricsStore.metrics.unrealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
         >
           {{ metricsStore.metrics.unrealizedPnlUsdc >= 0 ? '+' : '' }}${{ metricsStore.metrics.unrealizedPnlUsdc.toFixed(2) }}
         </span>
       </div>
 
-      <div class="bg-[#0B0E14]/40 p-2.5 rounded-lg border border-slate-800/60">
-        <span class="text-slate-400 text-[11px] block">Trades Répliqués</span>
-        <span class="text-sm font-bold font-mono text-sky-400">
+      <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
+        <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Trades Répliqués</span>
+        <span class="text-sm font-bold font-mono text-sky-600 dark:text-sky-400">
           {{ metricsStore.metrics.totalCopiedTrades }} exécutés
         </span>
       </div>
 
-      <div class="bg-[#0B0E14]/40 p-2.5 rounded-lg border border-slate-800/60">
-        <span class="text-slate-400 text-[11px] block">Protection Risque</span>
-        <span class="text-sm font-bold font-mono text-amber-400">
+      <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
+        <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Protection Risque</span>
+        <span class="text-sm font-bold font-mono text-amber-600 dark:text-amber-400">
           {{ metricsStore.metrics.totalRejectedTrades }} rejets
         </span>
       </div>

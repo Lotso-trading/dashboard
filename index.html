@@ -6,7 +6,7 @@
     <title>Polymarket Copy-Trading | Terminal Financier</title>
     <!-- Script Anti-FOUC immédiat pour le thème -->
     <script>
-      (function() {
+      (() => {
         const pref = localStorage.getItem('pm_theme_preference') || 'system';
         const isDark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (isDark) {

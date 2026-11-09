@@ -73,29 +73,29 @@ async function handleResetSimulation() {
     <!-- Grille des Métriques -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <!-- 1. Capital Total du Portefeuille -->
-      <div class="bg-[#121721] border border-slate-800/80 rounded-xl p-4.5 hover:border-slate-700 transition">
-        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
           <span>Capital Portefeuille</span>
-          <span class="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono">
+          <span class="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono font-medium">
             Base 1 000 $
           </span>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="text-2xl font-bold font-mono text-white tracking-tight">
+          <span class="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
             ${{ totalPortfolioValueUsdc.toFixed(2) }}
           </span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Cash + Valorisation des positions
         </p>
       </div>
 
       <!-- 2. Cash Virtuel Disponible -->
-      <div class="bg-[#121721] border border-slate-800/80 rounded-xl p-4.5 hover:border-slate-700 transition">
-        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
           <span>Cash Disponible</span>
           <span
-            :class="availableCashUsdc > 5 ? 'text-emerald-400' : 'text-rose-400'"
+            :class="availableCashUsdc > 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
             class="text-xs font-mono font-bold"
           >
             {{ availableCashUsdc > 5 ? 'Disponible' : 'Épuisé' }}
@@ -104,68 +104,68 @@ async function handleResetSimulation() {
         <div class="flex items-baseline gap-2">
           <span
             class="text-2xl font-bold font-mono tracking-tight"
-            :class="availableCashUsdc > 5 ? 'text-emerald-400' : 'text-rose-400'"
+            :class="availableCashUsdc > 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
           >
             ${{ availableCashUsdc.toFixed(2) }}
           </span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Solde prêt pour de nouveaux ordres
         </p>
       </div>
 
       <!-- 3. PnL Latent (Positions en cours) -->
-      <div class="bg-[#121721] border border-slate-800/80 rounded-xl p-4.5 hover:border-slate-700 transition">
-        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
           <span>PnL Non Réalisé (Latent)</span>
-          <span class="text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
+          <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
             {{ positionsStore.positions.length }} position(s)
           </span>
         </div>
         <div class="flex items-baseline gap-2">
           <span
             class="text-2xl font-bold font-mono tracking-tight"
-            :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+            :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
           >
             {{ positionsStore.totalUnrealizedPnlUsdc >= 0 ? '+' : '' }}${{ positionsStore.totalUnrealizedPnlUsdc.toFixed(2) }}
           </span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Valeur estimée : ${{ positionsStore.totalPositionsValueUsdc.toFixed(2) }} USDC
         </p>
       </div>
 
       <!-- 4. Volume Copié Total -->
-      <div class="bg-[#121721] border border-slate-800/80 rounded-xl p-4.5 hover:border-slate-700 transition">
-        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
           <span>Volume Tradé Répliqué</span>
-          <span class="text-xs text-blue-400 font-mono">
+          <span class="text-xs text-blue-600 dark:text-blue-400 font-mono font-medium">
             {{ metricsStore.metrics.totalCopiedTrades }} ordre(s)
           </span>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="text-2xl font-bold font-mono text-white tracking-tight">
+          <span class="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
             ${{ metricsStore.metrics.totalTradedVolumeUsdc.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) }}
           </span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Total des ordres simulés avec succès
         </p>
       </div>
 
       <!-- 5. Filtre de Risque & Rejets -->
-      <div class="bg-[#121721] border border-slate-800/80 rounded-xl p-4.5 hover:border-slate-700 transition">
-        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
           <span>Bouclier RiskManager</span>
-          <span class="text-xs text-amber-400 font-mono">Protection</span>
+          <span class="text-xs text-amber-600 dark:text-amber-400 font-mono font-medium">Protection</span>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="text-2xl font-bold font-mono text-amber-400 tracking-tight">
+          <span class="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 tracking-tight">
             {{ metricsStore.metrics.totalRejectedTrades }}
           </span>
-          <span class="text-xs text-slate-400">trade(s) bloqué(s)</span>
+          <span class="text-xs text-slate-500 dark:text-slate-400">trade(s) bloqué(s)</span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Portefeuille vide ou plafonds évités
         </p>
       </div>

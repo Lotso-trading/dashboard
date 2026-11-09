@@ -41,29 +41,29 @@ async function handleSave(): Promise<void> {
 </script>
 
 <template>
-  <div class="bg-[#121721] border border-slate-800/80 rounded-xl p-6">
+  <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-6 shadow-xs transition-colors">
     <!-- Header -->
-    <div class="pb-4 border-b border-slate-800 mb-6">
-      <h3 class="text-base font-bold text-white flex items-center gap-2">
+    <div class="pb-4 border-b border-slate-200 dark:border-slate-800 mb-6">
+      <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
         <span>⚙️</span> Gestion du Risque & Paramètres d'Exécution
       </h3>
-      <p class="text-xs text-slate-400">
+      <p class="text-xs text-slate-500 dark:text-slate-400">
         Définition des règles de dimensionnement du capital, anti-slippage et alertes
       </p>
     </div>
 
     <form @submit.prevent="handleSave" class="space-y-6 max-w-2xl">
       <!-- 1. Dimensionnement au % de solde -->
-      <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 space-y-2">
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-2">
         <div class="flex items-center justify-between">
-          <label class="text-xs font-semibold text-white">
+          <label class="text-xs font-semibold text-slate-900 dark:text-white">
             1. Dimensionnement du Capital (% Solde Disponible)
           </label>
-          <span class="font-mono text-sm font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+          <span class="font-mono text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
             {{ balancePercent }}% du solde
           </span>
         </div>
-        <p class="text-xs text-slate-400">
+        <p class="text-xs text-slate-500 dark:text-slate-400">
           Chaque trade copié risquera exactement cette fraction de vos USDC disponibles sur Polygon.
         </p>
         <input
@@ -74,7 +74,7 @@ async function handleSave(): Promise<void> {
           step="1"
           class="w-full accent-blue-500 cursor-pointer"
         />
-        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+        <div class="flex justify-between text-[10px] text-slate-400 font-mono">
           <span>1% (Ultra Sécurisé)</span>
           <span>5% (Modéré)</span>
           <span>15% (Agressif)</span>
@@ -82,16 +82,16 @@ async function handleSave(): Promise<void> {
       </div>
 
       <!-- 2. Slippage Maximum -->
-      <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 space-y-2">
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-2">
         <div class="flex items-center justify-between">
-          <label class="text-xs font-semibold text-white">
+          <label class="text-xs font-semibold text-slate-900 dark:text-white">
             2. Slippage Maximum Toléré
           </label>
-          <span class="font-mono text-sm font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+          <span class="font-mono text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
             +{{ maxSlippage }}% max
           </span>
         </div>
-        <p class="text-xs text-slate-400">
+        <p class="text-xs text-slate-500 dark:text-slate-400">
           Si le carnet d'ordres a déjà bougé au-delà de cette tolérance, l'ordre est automatiquement rejeté.
         </p>
         <input
@@ -102,7 +102,7 @@ async function handleSave(): Promise<void> {
           step="0.5"
           class="w-full accent-amber-500 cursor-pointer"
         />
-        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+        <div class="flex justify-between text-[10px] text-slate-400 font-mono">
           <span>0.5% (Strict)</span>
           <span>2.0% (Recommandé)</span>
           <span>5.0% (Tolérant)</span>
@@ -110,21 +110,21 @@ async function handleSave(): Promise<void> {
       </div>
 
       <!-- 3. Plafond Absolu par Ordre -->
-      <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 space-y-2">
-        <label class="block text-xs font-semibold text-white">
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-2">
+        <label class="block text-xs font-semibold text-slate-900 dark:text-white">
           3. Plafond Absolu en USDC par Trade
         </label>
-        <p class="text-xs text-slate-400">
+        <p class="text-xs text-slate-500 dark:text-slate-400">
           Même si le pourcentage de votre solde donne un montant plus élevé, l'ordre ne dépassera jamais cette limite.
         </p>
         <div class="relative max-w-xs">
-          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm font-mono">$</span>
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-mono">$</span>
           <input
             v-model.number="maxCap"
             type="number"
             min="5"
             step="5"
-            class="w-full bg-[#121721] border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 font-mono focus:outline-none focus:border-blue-500"
+            class="w-full bg-white dark:bg-[#121721] border border-slate-300 dark:border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500"
           />
         </div>
       </div>
@@ -132,80 +132,80 @@ async function handleSave(): Promise<void> {
       <!-- 4. Plafond d'Exposition par Marché & par Baleine -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <!-- Plafond par Marché -->
-        <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 space-y-2">
-          <label class="block text-xs font-semibold text-white">
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-2">
+          <label class="block text-xs font-semibold text-slate-900 dark:text-white">
             4. Plafond Maxi par Marché (ConditionId)
           </label>
-          <p class="text-[11px] text-slate-400">
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">
             Empêche qu'une baleine n'accumule 100 ordres sur le même marché.
           </p>
           <div class="relative">
-            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm font-mono">$</span>
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-mono">$</span>
             <input
               v-model.number="maxExposureMarket"
               type="number"
               min="10"
               step="10"
-              class="w-full bg-[#121721] border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 font-mono focus:outline-none focus:border-blue-500"
+              class="w-full bg-white dark:bg-[#121721] border border-slate-300 dark:border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
         <!-- Plafond par Baleine -->
-        <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 space-y-2">
-          <label class="block text-xs font-semibold text-white">
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-2">
+          <label class="block text-xs font-semibold text-slate-900 dark:text-white">
             5. Plafond Maxi par Baleine (Target)
           </label>
-          <p class="text-[11px] text-slate-400">
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">
             Capital maximal cumulé alloué à une seule cible.
           </p>
           <div class="relative">
-            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm font-mono">$</span>
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-mono">$</span>
             <input
               v-model.number="maxExposureWhale"
               type="number"
               min="20"
               step="20"
-              class="w-full bg-[#121721] border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 font-mono focus:outline-none focus:border-blue-500"
+              class="w-full bg-white dark:bg-[#121721] border border-slate-300 dark:border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
       </div>
 
       <!-- 6. Réserve de Cash Minimale (Seuil Portefeuille Vide) -->
-      <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 space-y-2">
-        <label class="block text-xs font-semibold text-white">
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-2">
+        <label class="block text-xs font-semibold text-slate-900 dark:text-white">
           6. Réserve Cash Minimale (Bouclier Portefeuille Vide)
         </label>
-        <p class="text-xs text-slate-400">
+        <p class="text-xs text-slate-500 dark:text-slate-400">
           Si votre solde disponible descend sous ce seuil (par défaut 5.00 USDC), tout nouvel achat est catégoriquement refusé.
         </p>
         <div class="relative max-w-xs">
-          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm font-mono">$</span>
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-mono">$</span>
           <input
             v-model.number="minCashReserve"
             type="number"
             min="1"
             step="1"
-            class="w-full bg-[#121721] border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-100 font-mono focus:outline-none focus:border-blue-500"
+            class="w-full bg-white dark:bg-[#121721] border border-slate-300 dark:border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500"
           />
         </div>
       </div>
 
-      <!-- 4. Toggles Sortie ALL & Mode Simulation -->
+      <!-- 7. Toggles Sortie ALL & Mode Simulation -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <!-- Sortie ALL -->
-        <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 flex items-center justify-between">
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <div class="text-xs font-semibold text-white">Réplication Sorties ALL</div>
-            <p class="text-[11px] text-slate-400 mt-0.5">Vendre automatiquement dès que la baleine vend</p>
+            <div class="text-xs font-semibold text-slate-900 dark:text-white">Réplication Sorties ALL</div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Vendre automatiquement dès que la baleine vend</p>
           </div>
           <button
             type="button"
             @click="copySellOrders = !copySellOrders"
             :class="[
               'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
-              copySellOrders ? 'bg-emerald-500' : 'bg-slate-700'
+              copySellOrders ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
             ]"
           >
             <span
@@ -218,17 +218,17 @@ async function handleSave(): Promise<void> {
         </div>
 
         <!-- Mode Dry Run -->
-        <div class="p-4 rounded-xl bg-[#0B0E14] border border-slate-800 flex items-center justify-between">
+        <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <div class="text-xs font-semibold text-white">Paper Trading (Dry-Run)</div>
-            <p class="text-[11px] text-slate-400 mt-0.5">Simulation sans engager de vrais fonds</p>
+            <div class="text-xs font-semibold text-slate-900 dark:text-white">Paper Trading (Dry-Run)</div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Simulation sans engager de vrais fonds</p>
           </div>
           <button
             type="button"
             @click="dryRun = !dryRun"
             :class="[
               'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
-              dryRun ? 'bg-amber-500' : 'bg-slate-700'
+              dryRun ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'
             ]"
           >
             <span
@@ -246,12 +246,12 @@ async function handleSave(): Promise<void> {
         <button
           type="submit"
           :disabled="isSaving"
-          class="px-5 py-2.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
+          class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 shadow-sm cursor-pointer"
         >
           {{ isSaving ? 'Sauvegarde...' : 'Sauvegarder les Paramètres' }}
         </button>
 
-        <span v-if="saveSuccess" class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+        <span v-if="saveSuccess" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
           ✓ Paramètres enregistrés avec succès
         </span>
       </div>

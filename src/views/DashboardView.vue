@@ -7,6 +7,7 @@ import type {
 } from "@polymarket-copy/shared";
 import { onMounted, ref } from "vue";
 import { wsClient } from "../api/websocket-client.ts";
+import FinancialSynthesisView from "../components/FinancialSynthesisView.vue";
 import LiveActivityFeed from "../components/LiveActivityFeed.vue";
 import MetricsGrid from "../components/MetricsGrid.vue";
 import PerformanceChart from "../components/PerformanceChart.vue";
@@ -19,7 +20,9 @@ import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
 
-const currentTab = ref<"OVERVIEW" | "TARGETS" | "POSITIONS" | "FEED" | "RISK">("OVERVIEW");
+const currentTab = ref<"SYNTHESIS" | "OVERVIEW" | "TARGETS" | "POSITIONS" | "FEED" | "RISK">(
+  "SYNTHESIS"
+);
 
 const metricsStore = useMetricsStore();
 const targetsStore = useTargetsStore();
@@ -85,15 +88,32 @@ onMounted(async () => {
 <template>
   <div class="space-y-6">
     <!-- Navigation Tabs -->
-    <div class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto text-xs font-semibold">
+    <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto text-xs font-semibold transition-colors">
+      <!-- 💎 Synthèse Temps Direct -->
+      <button
+        type="button"
+        @click="currentTab = 'SYNTHESIS'"
+        :class="[
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
+          currentTab === 'SYNTHESIS'
+            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
+        ]"
+      >
+        <span>💎</span> Synthèse en Direct
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono font-bold animate-pulse">
+          LIVE
+        </span>
+      </button>
+
       <button
         type="button"
         @click="currentTab = 'OVERVIEW'"
         :class="[
-          'px-4 py-2 rounded-lg transition flex items-center gap-2 shrink-0',
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'OVERVIEW'
-            ? 'bg-blue-600/10 text-blue-400 border border-blue-500/30'
-            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
         <span>📊</span> Vue d'Ensemble & PnL
@@ -103,14 +123,14 @@ onMounted(async () => {
         type="button"
         @click="currentTab = 'TARGETS'"
         :class="[
-          'px-4 py-2 rounded-lg transition flex items-center gap-2 shrink-0',
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'TARGETS'
-            ? 'bg-blue-600/10 text-blue-400 border border-blue-500/30'
-            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>🐋</span> Baleines Suivies (Follows)
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono">
+        <span>🐋</span> Baleines Suivies
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
           {{ targetsStore.targets.length }}
         </span>
       </button>
@@ -119,14 +139,14 @@ onMounted(async () => {
         type="button"
         @click="currentTab = 'POSITIONS'"
         :class="[
-          'px-4 py-2 rounded-lg transition flex items-center gap-2 shrink-0',
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'POSITIONS'
-            ? 'bg-blue-600/10 text-blue-400 border border-blue-500/30'
-            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
         <span>📑</span> Positions Ouvertes
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono">
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
           {{ positionsStore.positions.length }}
         </span>
       </button>
@@ -135,23 +155,23 @@ onMounted(async () => {
         type="button"
         @click="currentTab = 'FEED'"
         :class="[
-          'px-4 py-2 rounded-lg transition flex items-center gap-2 shrink-0',
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'FEED'
-            ? 'bg-blue-600/10 text-blue-400 border border-blue-500/30'
-            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>⚡</span> Flux d'Activité en Direct
+        <span>⚡</span> Flux d'Activité
       </button>
 
       <button
         type="button"
         @click="currentTab = 'RISK'"
         :class="[
-          'px-4 py-2 rounded-lg transition flex items-center gap-2 shrink-0',
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'RISK'
-            ? 'bg-blue-600/10 text-blue-400 border border-blue-500/30'
-            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
         <span>⚙️</span> Gestion du Risque
@@ -159,7 +179,11 @@ onMounted(async () => {
     </div>
 
     <!-- Contenu Dynamique par Onglet -->
-    <div v-if="currentTab === 'OVERVIEW'" class="space-y-6">
+    <div v-if="currentTab === 'SYNTHESIS'">
+      <FinancialSynthesisView />
+    </div>
+
+    <div v-else-if="currentTab === 'OVERVIEW'" class="space-y-6">
       <MetricsGrid />
       <PerformanceChart />
       <PositionsTable />

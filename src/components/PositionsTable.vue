@@ -140,20 +140,20 @@ const netPotentialProfitUsdc = computed(() => {
 </script>
 
 <template>
-  <div class="bg-[#0b0f17]/95 border border-white/[0.08] rounded-2xl p-6 shadow-2xl backdrop-blur-xl space-y-6">
+  <div class="bg-white dark:bg-[#0b0f17]/95 border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-6 shadow-xs dark:shadow-2xl backdrop-blur-xl space-y-6 transition-colors">
     <!-- Top Action Bar -->
-    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.06] pb-5">
+    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-white/[0.06] pb-5">
       <div>
         <div class="flex items-center gap-2.5">
           <span class="text-xl">📑</span>
-          <h3 class="text-lg font-bold text-white tracking-tight">
+          <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
             Positions & Payouts Polymarket
           </h3>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium">
             Pro Engine
           </span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
           Suivi haute précision de votre capital, échéances en heure locale et encaissement garanti à 1,00 $
         </p>
       </div>
@@ -164,22 +164,22 @@ const netPotentialProfitUsdc = computed(() => {
           type="button"
           @click="handleSettlement"
           :disabled="positionsStore.isSettling"
-          class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 border border-blue-500/30 transition-all duration-200 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-300 border border-blue-500/30 transition-all duration-200 flex items-center gap-2 cursor-pointer disabled:opacity-50"
         >
           <span :class="{ 'animate-spin': positionsStore.isSettling }">🔄</span>
           <span>{{ positionsStore.isSettling ? 'Vérification...' : 'Encaisser & Vérifier' }}</span>
         </button>
 
         <!-- View Switcher (Cards / Table) -->
-        <div class="bg-black/40 border border-white/[0.08] p-0.5 rounded-xl flex items-center text-xs">
+        <div class="bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] p-0.5 rounded-xl flex items-center text-xs">
           <button
             type="button"
             @click="viewMode = 'CARDS'"
             :class="[
               'px-2.5 py-1 rounded-lg transition font-medium flex items-center gap-1.5 cursor-pointer',
               viewMode === 'CARDS'
-                ? 'bg-white/10 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-white/10 dark:text-white'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             ]"
           >
             <span>🗂️</span>
@@ -191,8 +191,8 @@ const netPotentialProfitUsdc = computed(() => {
             :class="[
               'px-2.5 py-1 rounded-lg transition font-medium flex items-center gap-1.5 cursor-pointer',
               viewMode === 'TABLE'
-                ? 'bg-white/10 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-white/10 dark:text-white'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             ]"
           >
             <span>📋</span>
@@ -204,7 +204,7 @@ const netPotentialProfitUsdc = computed(() => {
         <button
           type="button"
           @click="showExplainer = !showExplainer"
-          class="text-xs text-slate-400 hover:text-slate-200 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+          class="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.03] dark:hover:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
         >
           <span>💡</span>
           <span>{{ showExplainer ? 'Masquer Guide' : 'Comprendre Gains' }}</span>
@@ -227,57 +227,57 @@ const netPotentialProfitUsdc = computed(() => {
     <!-- 4 Hero KPI Glass Cards (Apple Style Grid) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
       <!-- Card 1 : Capital Engagé -->
-      <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-white/[0.12] transition">
-        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+      <div class="bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-slate-300 dark:hover:border-white/[0.12] transition shadow-xs">
+        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
           <span>Capital Engagé</span>
-          <span class="text-blue-400">💼</span>
+          <span class="text-blue-500 dark:text-blue-400">💼</span>
         </div>
-        <div class="text-xl font-bold font-mono text-white tracking-tight">
+        <div class="text-xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
           ${{ positionsStore.totalInvestedUsdc.toFixed(2) }}
         </div>
-        <div class="text-[11px] text-slate-400">
+        <div class="text-[11px] text-slate-500 dark:text-slate-400">
           {{ positionsStore.positions.length }} position(s) active(s)
         </div>
       </div>
 
       <!-- Card 2 : Max Payout Garanti -->
-      <div class="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-emerald-500/40 transition">
-        <div class="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+      <div class="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-emerald-400 dark:hover:border-emerald-500/40 transition shadow-xs">
+        <div class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center justify-between">
           <span>Gains Max Garantis</span>
           <span>🏆</span>
         </div>
-        <div class="text-xl font-bold font-mono text-emerald-300 tracking-tight">
+        <div class="text-xl font-bold font-mono text-emerald-700 dark:text-emerald-300 tracking-tight">
           ${{ positionsStore.totalPayoutPotentialUsdc.toFixed(2) }}
         </div>
-        <div class="text-[11px] text-emerald-400/90 font-medium">
+        <div class="text-[11px] text-emerald-600 dark:text-emerald-400/90 font-medium">
           Bénéfice net latent : +${{ netPotentialProfitUsdc.toFixed(2) }} USDC
         </div>
       </div>
 
       <!-- Card 3 : Payouts Déjà Encaissés -->
-      <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-white/[0.12] transition">
-        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+      <div class="bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-slate-300 dark:hover:border-white/[0.12] transition shadow-xs">
+        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
           <span>Cash Encaissé (Résolu)</span>
-          <span class="text-emerald-400">💰</span>
+          <span class="text-emerald-500 dark:text-emerald-400">💰</span>
         </div>
-        <div class="text-xl font-bold font-mono tracking-tight" :class="positionsStore.totalRealizedPnlUsdc >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+        <div class="text-xl font-bold font-mono tracking-tight" :class="positionsStore.totalRealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'">
           {{ positionsStore.totalRealizedPnlUsdc >= 0 ? '+' : '' }}${{ positionsStore.totalRealizedPnlUsdc.toFixed(2) }}
         </div>
-        <div class="text-[11px] text-slate-400">
+        <div class="text-[11px] text-slate-500 dark:text-slate-400">
           {{ positionsStore.closedPositions.length }} position(s) clôturée(s)
         </div>
       </div>
 
       <!-- Card 4 : Revente Immédiate -->
-      <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-white/[0.12] transition">
-        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+      <div class="bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] rounded-xl p-4 space-y-1 relative overflow-hidden group hover:border-slate-300 dark:hover:border-white/[0.12] transition shadow-xs">
+        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
           <span>Valeur Carnet Instant</span>
-          <span class="text-amber-400">⏱️</span>
+          <span class="text-amber-500 dark:text-amber-400">⏱️</span>
         </div>
-        <div class="text-xl font-bold font-mono text-slate-100 tracking-tight">
+        <div class="text-xl font-bold font-mono text-slate-900 dark:text-slate-100 tracking-tight">
           ${{ positionsStore.totalPositionsValueUsdc.toFixed(2) }}
         </div>
-        <div class="text-[11px]" :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'text-emerald-400' : 'text-slate-400'">
+        <div class="text-[11px]" :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'">
           Écart carnet : {{ positionsStore.totalUnrealizedPnlUsdc >= 0 ? '+' : '' }}${{ positionsStore.totalUnrealizedPnlUsdc.toFixed(2) }}
         </div>
       </div>
@@ -286,25 +286,25 @@ const netPotentialProfitUsdc = computed(() => {
     <!-- Explainer Drawer (Apple Collapsible Style) -->
     <div
       v-if="showExplainer"
-      class="bg-blue-950/20 border border-blue-500/20 rounded-xl p-4 text-xs text-slate-300 space-y-3 transition-all"
+      class="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-500/20 rounded-xl p-4 text-xs text-slate-700 dark:text-slate-300 space-y-3 transition-all"
     >
-      <div class="flex items-center gap-2 text-blue-300 font-bold text-sm">
+      <div class="flex items-center gap-2 text-blue-600 dark:text-blue-300 font-bold text-sm">
         <span>💡</span> Guide de lecture : "Valeur Carnet" vs "Paiement Garanti à l'Échéance"
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] leading-relaxed">
-        <div class="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
-          <div class="text-amber-300 font-bold mb-1">⏱️ Valeur Actuelle (Si Revente au Carnet)</div>
+        <div class="bg-white dark:bg-black/30 p-3 rounded-lg border border-slate-200 dark:border-white/[0.06]">
+          <div class="text-amber-600 dark:text-amber-300 font-bold mb-1">⏱️ Valeur Actuelle (Si Revente au Carnet)</div>
           C'est ce que vous récupéreriez si vous vendiez tout de suite au carnet d'ordres avant la fin du match. Tant que le match n'est pas terminé, elle reste proche de votre mise.
         </div>
-        <div class="bg-black/30 p-3 rounded-lg border border-emerald-500/20">
-          <div class="text-emerald-400 font-bold mb-1">🏆 À l'Échéance (Paiement Garanti Polymarket)</div>
+        <div class="bg-white dark:bg-black/30 p-3 rounded-lg border border-emerald-200 dark:border-emerald-500/20">
+          <div class="text-emerald-600 dark:text-emerald-400 font-bold mb-1">🏆 À l'Échéance (Paiement Garanti Polymarket)</div>
           Sur Polymarket, chaque part gagnante est rachetée à <strong>1,00 USDC</strong> fixe. Votre mise de départ est remboursée en totalité et vous encaissez 100% du bénéfice net !
         </div>
       </div>
     </div>
 
     <!-- Segmented Tabs (Apple Pill Switcher) -->
-    <div class="flex items-center gap-2 bg-black/40 border border-white/[0.08] p-1 rounded-xl w-fit text-xs font-semibold">
+    <div class="flex items-center gap-2 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] p-1 rounded-xl w-fit text-xs font-semibold">
       <button
         type="button"
         @click="activeTab = 'OPEN'"
@@ -312,7 +312,7 @@ const netPotentialProfitUsdc = computed(() => {
           'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
           activeTab === 'OPEN'
             ? 'bg-blue-600 text-white shadow-md'
-            : 'text-slate-400 hover:text-white'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
         ]"
       >
         <span>🟢</span>
@@ -329,7 +329,7 @@ const netPotentialProfitUsdc = computed(() => {
           'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
           activeTab === 'CLOSED'
             ? 'bg-blue-600 text-white shadow-md'
-            : 'text-slate-400 hover:text-white'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
         ]"
       >
         <span>🏁</span>
