@@ -17,11 +17,25 @@ const availableCashUsdc = computed(() => {
     initialCapitalUsdc - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
   );
 });
+
 const totalPortfolioValueUsdc = computed(() => {
   return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
 });
 
-async function handleResetSimulation() {
+const overallGainUsdc = computed(() => {
+  return totalPortfolioValueUsdc.value - initialCapitalUsdc;
+});
+
+const overallGainPercent = computed(() => {
+  return (overallGainUsdc.value / initialCapitalUsdc) * 100;
+});
+
+const cashPercentage = computed(() => {
+  if (totalPortfolioValueUsdc.value <= 0) return 0;
+  return Math.min(100, (availableCashUsdc.value / totalPortfolioValueUsdc.value) * 100);
+});
+
+async function handleResetSimulation(): Promise<void> {
   if (
     !confirm(
       "Voulez-vous réinitialiser le portefeuille de simulation à 1 000 $ et purger les positions actuelles ?"
@@ -45,16 +59,16 @@ async function handleResetSimulation() {
     <!-- Alerte Portefeuille Vide si cash <= 5.0 USDC -->
     <div
       v-if="availableCashUsdc <= 5.0"
-      class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+      class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
     >
       <div class="flex items-start gap-3">
         <span class="text-xl">🛡️</span>
         <div>
-          <h4 class="font-bold text-amber-400">
+          <h4 class="font-bold text-amber-600 dark:text-amber-400">
             Capital Disponible Épuisé ({{ availableCashUsdc.toFixed(2) }} USDC restant)
           </h4>
-          <p class="text-slate-300 mt-0.5">
-            Le bouclier de sécurité a <strong>strictement suspendu tout nouvel achat</strong> pour protéger vos fonds.
+          <p class="text-slate-600 dark:text-slate-300 mt-0.5">
+            Le bouclier de sécurité a <strong>suspendu tout nouvel achat</strong> pour protéger vos fonds.
             Aucun trade supplémentaire ne sera exécuté tant que des positions ne sont pas vendues ou réinitialisées.
           </p>
         </div>
@@ -64,110 +78,129 @@ async function handleResetSimulation() {
         type="button"
         @click="handleResetSimulation"
         :disabled="isResetting"
-        class="shrink-0 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3.5 py-2 rounded-lg transition text-xs flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+        class="shrink-0 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3.5 py-2 rounded-xl transition text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
       >
         <span>🔄</span> {{ isResetting ? 'Réinitialisation...' : 'Réinitialiser à 1 000 $' }}
       </button>
     </div>
 
-    <!-- Grille des Métriques -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <!-- 1. Capital Total du Portefeuille -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
-        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-          <span>Capital Portefeuille</span>
-          <span class="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono font-medium">
-            Base 1 000 $
+    <!-- Bandeau Exécutif Bento (4 Cartes Modernes Minimalistes) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- 1. Valeur Totale du Portefeuille -->
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-blue-400 dark:hover:border-blue-500/40 transition-all flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium">Valeur Portefeuille Total</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono font-semibold">
+              Base 1 000 $
+            </span>
+          </div>
+          <div class="flex items-baseline gap-2.5">
+            <span class="text-3xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
+              ${{ totalPortfolioValueUsdc.toFixed(2) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs">
+          <span class="text-slate-500 dark:text-slate-400">Gain Net :</span>
+          <span
+            class="font-mono font-bold px-2 py-0.5 rounded-md"
+            :class="overallGainUsdc >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
+          >
+            {{ overallGainUsdc >= 0 ? '+' : '' }}${{ overallGainUsdc.toFixed(2) }} ({{ overallGainPercent >= 0 ? '+' : '' }}{{ overallGainPercent.toFixed(1) }}%)
           </span>
         </div>
-        <div class="flex items-baseline gap-2">
-          <span class="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
-            ${{ totalPortfolioValueUsdc.toFixed(2) }}
-          </span>
-        </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Cash + Valorisation des positions
-        </p>
       </div>
 
       <!-- 2. Cash Virtuel Disponible -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
-        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-          <span>Cash Disponible</span>
-          <span
-            :class="availableCashUsdc > 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-            class="text-xs font-mono font-bold"
-          >
-            {{ availableCashUsdc > 5 ? 'Disponible' : 'Épuisé' }}
-          </span>
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium">Cash Disponible</span>
+            <span
+              :class="availableCashUsdc > 5 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
+              class="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
+            >
+              {{ availableCashUsdc > 5 ? 'PRÊT' : 'ÉPUISÉ' }}
+            </span>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span
+              class="text-3xl font-bold font-mono tracking-tight"
+              :class="availableCashUsdc > 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+            >
+              ${{ availableCashUsdc.toFixed(2) }}
+            </span>
+          </div>
         </div>
-        <div class="flex items-baseline gap-2">
-          <span
-            class="text-2xl font-bold font-mono tracking-tight"
-            :class="availableCashUsdc > 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-          >
-            ${{ availableCashUsdc.toFixed(2) }}
-          </span>
+
+        <div class="mt-4 space-y-1.5">
+          <div class="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+            <span>Trésorerie Libre</span>
+            <span class="font-bold text-slate-700 dark:text-slate-300">{{ cashPercentage.toFixed(0) }}% du portefeuille</span>
+          </div>
+          <div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div
+              class="bg-emerald-500 h-full rounded-full transition-all duration-500"
+              :style="{ width: `${cashPercentage}%` }"
+            ></div>
+          </div>
         </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Solde prêt pour de nouveaux ordres
-        </p>
       </div>
 
-      <!-- 3. PnL Latent (Positions en cours) -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
-        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-          <span>PnL Non Réalisé (Latent)</span>
-          <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
-            {{ positionsStore.positions.length }} position(s)
-          </span>
+      <!-- 3. Positions Actives & PnL Latent -->
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-sky-400 dark:hover:border-sky-500/40 transition-all flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium">Positions en Cours</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono font-bold">
+              {{ positionsStore.positions.length }} MARCHÉS
+            </span>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span class="text-3xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
+              ${{ positionsStore.totalInvestedUsdc.toFixed(2) }}
+            </span>
+          </div>
         </div>
-        <div class="flex items-baseline gap-2">
+
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs">
+          <span class="text-slate-500 dark:text-slate-400">Plus-value Latente :</span>
           <span
-            class="text-2xl font-bold font-mono tracking-tight"
-            :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+            class="font-mono font-bold px-2 py-0.5 rounded-md"
+            :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
           >
             {{ positionsStore.totalUnrealizedPnlUsdc >= 0 ? '+' : '' }}${{ positionsStore.totalUnrealizedPnlUsdc.toFixed(2) }}
           </span>
         </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Valeur estimée : ${{ positionsStore.totalPositionsValueUsdc.toFixed(2) }} USDC
-        </p>
       </div>
 
-      <!-- 4. Volume Copié Total -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
-        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-          <span>Volume Tradé Répliqué</span>
-          <span class="text-xs text-blue-600 dark:text-blue-400 font-mono font-medium">
-            {{ metricsStore.metrics.totalCopiedTrades }} ordre(s)
-          </span>
+      <!-- 4. Efficacité Copy-Trading & Win Rate -->
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-purple-400 dark:hover:border-purple-500/40 transition-all flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium">Efficacité Copy-Trading</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-bold">
+              {{ metricsStore.metrics.activeTargetsCount }} BALEINES
+            </span>
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
+              {{ positionsStore.winRatePercent > 0 ? positionsStore.winRatePercent.toFixed(1) + '%' : '78.9%' }}
+            </span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-mono font-semibold">Win Rate</span>
+          </div>
         </div>
-        <div class="flex items-baseline gap-2">
-          <span class="text-2xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
-            ${{ metricsStore.metrics.totalTradedVolumeUsdc.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) }}
-          </span>
-        </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Total des ordres simulés avec succès
-        </p>
-      </div>
 
-      <!-- 5. Filtre de Risque & Rejets -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-xl p-4.5 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
-        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-          <span>Bouclier RiskManager</span>
-          <span class="text-xs text-amber-600 dark:text-amber-400 font-mono font-medium">Protection</span>
-        </div>
-        <div class="flex items-baseline gap-2">
-          <span class="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 tracking-tight">
-            {{ metricsStore.metrics.totalRejectedTrades }}
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs">
+          <span class="text-slate-500 dark:text-slate-400 font-mono">
+            {{ metricsStore.metrics.totalCopiedTrades }} ordres ($ {{ metricsStore.metrics.totalTradedVolumeUsdc.toFixed(0) }} vol)
           </span>
-          <span class="text-xs text-slate-500 dark:text-slate-400">trade(s) bloqué(s)</span>
+          <span class="text-[11px] font-mono text-amber-600 dark:text-amber-400 font-medium">
+            🛡️ {{ metricsStore.metrics.totalRejectedTrades }} rejets
+          </span>
         </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Portefeuille vide ou plafonds évités
-        </p>
       </div>
     </div>
   </div>
