@@ -14,9 +14,13 @@ export interface GlobalMetrics {
   totalCopiedTrades: number;
   totalRejectedTrades: number;
   activePositionsCount: number;
+  initialCapitalUsdc?: number;
   totalInvestedUsdc: number;
   currentPositionsValueUsdc: number;
   unrealizedPnlUsdc: number;
+  realizedPnlUsdc?: number;
+  availableCashUsdc?: number;
+  totalPortfolioValueUsdc?: number;
   activeTargetsCount: number;
 }
 

@@ -9,11 +9,16 @@ const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 
-const initialCapitalUsdc = 1000.0;
+const initialCapitalUsdc = computed(() => {
+  if (configStore.config?.maxAllocatedCapitalUsdc && configStore.config.maxAllocatedCapitalUsdc > 0) {
+    return configStore.config.maxAllocatedCapitalUsdc;
+  }
+  return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+});
 const availableCashUsdc = computed(() => {
   return Math.max(
     0,
-    initialCapitalUsdc - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
+    initialCapitalUsdc.value - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
   );
 });
 const totalPortfolioValueUsdc = computed(() => {
@@ -59,7 +64,7 @@ async function toggleBot(): Promise<void> {
       <!-- Quick Metrics Bar -->
       <div class="hidden md:flex items-center gap-6 text-sm">
         <div class="flex flex-col">
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Portefeuille (1k$)</span>
+          <span class="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Portefeuille ({{ initialCapitalUsdc }} $)</span>
           <span class="font-mono font-bold text-slate-900 dark:text-white">
             ${{ totalPortfolioValueUsdc.toFixed(2) }}
           </span>

@@ -8,9 +8,13 @@ export const useMetricsStore = defineStore("metrics", () => {
     totalCopiedTrades: 0,
     totalRejectedTrades: 0,
     activePositionsCount: 0,
+    initialCapitalUsdc: 100,
     totalInvestedUsdc: 0,
     currentPositionsValueUsdc: 0,
     unrealizedPnlUsdc: 0,
+    realizedPnlUsdc: 0,
+    availableCashUsdc: 100,
+    totalPortfolioValueUsdc: 100,
     activeTargetsCount: 0,
   });
 

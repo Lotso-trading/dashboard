@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
+import { useMetricsStore } from "../stores/use-metrics.store.ts";
 
 const configStore = useConfigStore();
+const metricsStore = useMetricsStore();
 
 const balancePercent = ref(Math.round((configStore.config?.balancePercentPerTrade ?? 0.03) * 100));
 const maxSlippage = ref(configStore.config?.maxSlippagePercent ?? 2.0);
@@ -12,9 +14,43 @@ const maxExposureWhale = ref(configStore.config?.maxExposurePerTargetUsdc ?? 300
 const minCashReserve = ref(configStore.config?.minCashReserveUsdc ?? 5.0);
 const copySellOrders = ref(configStore.config?.copySellOrders ?? true);
 const dryRun = ref(configStore.config?.dryRun ?? true);
+const maxAllocatedCapital = ref(configStore.config?.maxAllocatedCapitalUsdc ?? 0);
+const profitReinvestmentPercent = ref(configStore.config?.profitReinvestmentPercent ?? 50.0);
 
 const isSaving = ref(false);
 const saveSuccess = ref(false);
+
+// Calcul dynamique de simulation en direct sous le slider
+const hypotheticalGain = 50.0;
+const baseCapitalForSimulation = computed(() => {
+  if (maxAllocatedCapital.value && maxAllocatedCapital.value > 0) {
+    return maxAllocatedCapital.value;
+  }
+  return metricsStore.metrics.initialCapitalUsdc || 100.0;
+});
+
+const simulatedGainsAllowed = computed(() => {
+  return Math.round(hypotheticalGain * (profitReinvestmentPercent.value / 100) * 100) / 100;
+});
+
+const simulatedBotUsableCapital = computed(() => {
+  return baseCapitalForSimulation.value + simulatedGainsAllowed.value;
+});
+
+const simulatedSanctuarizedProfit = computed(() => {
+  return Math.round(hypotheticalGain * (1 - profitReinvestmentPercent.value / 100) * 100) / 100;
+});
+
+// Impact en direct sur les gains réels existants
+const currentRealizedPnl = computed(() => metricsStore.metrics.realizedPnlUsdc ?? 0);
+const currentRealizedGainsAllowed = computed(() => {
+  if (currentRealizedPnl.value <= 0) return 0;
+  return Math.round(currentRealizedPnl.value * (profitReinvestmentPercent.value / 100) * 100) / 100;
+});
+const currentRealizedGainsProtected = computed(() => {
+  if (currentRealizedPnl.value <= 0) return 0;
+  return Math.round((currentRealizedPnl.value - currentRealizedGainsAllowed.value) * 100) / 100;
+});
 
 async function handleSave(): Promise<void> {
   isSaving.value = true;
@@ -29,6 +65,8 @@ async function handleSave(): Promise<void> {
       minCashReserveUsdc: minCashReserve.value,
       copySellOrders: copySellOrders.value,
       dryRun: dryRun.value,
+      maxAllocatedCapitalUsdc: maxAllocatedCapital.value,
+      profitReinvestmentPercent: profitReinvestmentPercent.value,
     });
     saveSuccess.value = true;
     setTimeout(() => {
@@ -53,6 +91,111 @@ async function handleSave(): Promise<void> {
     </div>
 
     <form @submit.prevent="handleSave" class="space-y-6 max-w-2xl">
+      <!-- Section Budget Alloué & Réinvestissement des Bénéfices -->
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-4">
+        <!-- Plafond de Capital Alloué -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>💼</span> Capital Alloué au Bot (USDC)
+            </label>
+            <span
+              class="font-mono text-xs font-bold px-2 py-0.5 rounded border"
+              :class="maxAllocatedCapital > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700'"
+            >
+              {{ maxAllocatedCapital > 0 ? `$${maxAllocatedCapital} alloués` : 'Tout le Portefeuille' }}
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
+            Somme maximale du portefeuille utilisable par le bot (ex: 100 $ sur 500 $ disponibles). Laissez 0 pour utiliser tout le solde.
+          </p>
+          <div class="relative max-w-xs">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-mono">$</span>
+            <input
+              v-model.number="maxAllocatedCapital"
+              type="number"
+              min="0"
+              step="10"
+              placeholder="0 (tout le portefeuille)"
+              class="w-full bg-white dark:bg-[#121721] border border-slate-300 dark:border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        <!-- Slider de Réinvestissement des Gains -->
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>📈</span> Part des Bénéfices Réinvestissables
+            </label>
+            <span class="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              {{ profitReinvestmentPercent }}% réinvesti
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            Définit si les gains nets réalisés s'ajoutent au budget de trading ou sont sanctuarisés (protégés).
+          </p>
+          <input
+            v-model.number="profitReinvestmentPercent"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            class="w-full accent-emerald-500 cursor-pointer"
+          />
+          <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+            <span>0% (Bénéfices Intouchables)</span>
+            <span>50% (Équilibré)</span>
+            <span>100% (Intérêts Composés)</span>
+          </div>
+
+          <!-- Encadré interactif de calcul en direct des gains -->
+          <div class="mt-3 p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/25 border border-blue-200/80 dark:border-blue-800/50 space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200">
+              <span class="flex items-center gap-1.5">
+                <span>⚡</span> Calcul & Simulation en direct (Base : ${{ baseCapitalForSimulation }} alloués)
+              </span>
+              <span class="font-mono text-xs text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                {{ profitReinvestmentPercent }}% réinvesti • {{ 100 - profitReinvestmentPercent }}% sanctuarisé
+              </span>
+            </div>
+
+            <div class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-mono">
+              Pour un gain hypothétique de <strong class="text-emerald-600 dark:text-emerald-400 font-bold">+50,00 $</strong> (Portefeuille total = ${{ (baseCapitalForSimulation + 50).toFixed(2) }}) :
+              <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div class="bg-white/80 dark:bg-black/20 p-2.5 rounded-lg border border-blue-200/50 dark:border-blue-800/30">
+                  <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase tracking-wider">Capital Utilisable par le Bot :</span>
+                  <strong class="text-sm text-blue-600 dark:text-blue-400 font-bold block mt-0.5">
+                    ${{ simulatedBotUsableCapital.toFixed(2) }}
+                  </strong>
+                  <span class="text-[10px] text-slate-400 block">
+                    (${{ baseCapitalForSimulation }} base + ${{ simulatedGainsAllowed.toFixed(2) }} gains)
+                  </span>
+                </div>
+                <div class="bg-white/80 dark:bg-black/20 p-2.5 rounded-lg border border-emerald-200/50 dark:border-emerald-800/30">
+                  <span class="text-slate-500 dark:text-slate-400 block text-[10px] uppercase tracking-wider">Bénéfices Sanctuarisés :</span>
+                  <strong class="text-sm text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">
+                    ${{ simulatedSanctuarizedProfit.toFixed(2) }}
+                  </strong>
+                  <span class="text-[10px] text-slate-400 block">
+                    (Intouchables, protégés sur le compte)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Impact réel en direct sur les gains actuels du compte si > 0 -->
+            <div v-if="currentRealizedPnl > 0" class="pt-2 border-t border-blue-200/60 dark:border-blue-800/40 text-[11px] text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Gains réels actuels (+${{ currentRealizedPnl.toFixed(2) }}) :</span>
+              <span class="font-mono font-semibold">
+                <strong class="text-blue-600 dark:text-blue-400">+${{ currentRealizedGainsAllowed.toFixed(2) }}</strong> utilisables • 
+                <strong class="text-emerald-600 dark:text-emerald-400">+${{ currentRealizedGainsProtected.toFixed(2) }}</strong> protégés
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 1. Dimensionnement au % de solde -->
       <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-2">
         <div class="flex items-center justify-between">

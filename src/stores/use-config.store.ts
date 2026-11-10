@@ -15,6 +15,8 @@ export const useConfigStore = defineStore("config", () => {
     maxPrice: 0.9,
     copySellOrders: true,
     dryRun: true,
+    maxAllocatedCapitalUsdc: 0,
+    profitReinvestmentPercent: 50.0,
     isBotRunning: true,
   });
 

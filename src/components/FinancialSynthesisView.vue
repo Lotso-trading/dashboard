@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 
+const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 
-const initialCapitalUsdc = 1000.0;
+const initialCapitalUsdc = computed(() => {
+  if (configStore.config?.maxAllocatedCapitalUsdc && configStore.config.maxAllocatedCapitalUsdc > 0) {
+    return configStore.config.maxAllocatedCapitalUsdc;
+  }
+  return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+});
 const lastSyncTime = ref(
   new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
 );
@@ -15,7 +22,7 @@ const filterStatus = ref<"ALL" | "WIN" | "LOSS">("ALL");
 const availableCashUsdc = computed(() => {
   return Math.max(
     0,
-    initialCapitalUsdc - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
+    initialCapitalUsdc.value - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
   );
 });
 
@@ -24,7 +31,8 @@ const totalPortfolioValueUsdc = computed(() => {
 });
 
 const overallRoiPercent = computed(() => {
-  return ((totalPortfolioValueUsdc.value - initialCapitalUsdc) / initialCapitalUsdc) * 100;
+  if (initialCapitalUsdc.value <= 0) return 0;
+  return ((totalPortfolioValueUsdc.value - initialCapitalUsdc.value) / initialCapitalUsdc.value) * 100;
 });
 
 const maxPotentialNetProfit = computed(() => {

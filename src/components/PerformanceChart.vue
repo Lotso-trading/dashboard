@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { PerformancePoint } from "../api/http-client.ts";
+import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
 
+const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const targetsStore = useTargetsStore();
 const tradesStore = useTradesStore();
+
+const initialCapital = computed(() => {
+  if (configStore.config?.maxAllocatedCapitalUsdc && configStore.config.maxAllocatedCapitalUsdc > 0) {
+    return configStore.config.maxAllocatedCapitalUsdc;
+  }
+  return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+});
 
 // Visibilité des séries
 const showPortfolioValue = ref(true);
@@ -25,18 +34,18 @@ const hoverY = ref<number>(0);
 const filteredPoints = computed(() => {
   const points = metricsStore.performanceHistory;
   if (points.length === 0) {
-    // Si aucun point dans l'historique, générer un point de référence 1000$
+    // Si aucun point dans l'historique, générer un point de référence
     return [
       {
         timestamp: Date.now() - 3600000,
         myCumulativePnlUsdc: 0,
-        portfolioValueUsdc: 1000.0,
+        portfolioValueUsdc: initialCapital.value,
         whaleCumulativeUsdc: 0,
       },
       {
         timestamp: Date.now(),
         myCumulativePnlUsdc: 0,
-        portfolioValueUsdc: 1000.0,
+        portfolioValueUsdc: initialCapital.value,
         whaleCumulativeUsdc: 0,
       },
     ];
@@ -77,7 +86,7 @@ const valueRange = computed(() => {
   const values: number[] = [];
   for (const p of pts) {
     if (showPortfolioValue.value) values.push(p.portfolioValueUsdc);
-    if (showMyCumulativePnl.value) values.push(p.myCumulativePnlUsdc + 1000); // normalisé
+    if (showMyCumulativePnl.value) values.push(p.myCumulativePnlUsdc + initialCapital.value); // normalisé
     if (showWhaleVolume.value) values.push(p.whaleCumulativeUsdc);
   }
 
@@ -133,7 +142,7 @@ const myPnlPath = computed(() => {
   return pts
     .map(
       (p, i) =>
-        `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.myCumulativePnlUsdc + 1000).toFixed(1)}`
+        `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.myCumulativePnlUsdc + initialCapital.value).toFixed(1)}`
     )
     .join(" ");
 });
@@ -343,23 +352,23 @@ function handleMouseLeave() {
           </text>
         </g>
 
-        <!-- Ligne de flottaison Base 1 000 $ -->
+        <!-- Ligne de flottaison Base Capital -->
         <line
           :x1="padding.left"
-          :y1="getY(1000)"
+          :y1="getY(initialCapital)"
           :x2="width - padding.right"
-          :y2="getY(1000)"
+          :y2="getY(initialCapital)"
           stroke="#475569"
           stroke-width="1"
           stroke-dasharray="4,4"
         />
         <text
           :x="width - padding.right + 5"
-          :y="getY(1000) + 3"
+          :y="getY(initialCapital) + 3"
           fill="#64748b"
           class="text-[9px]"
         >
-          Base 1 000 $
+          Base {{ initialCapital }} $
         </text>
 
         <!-- Labels X (Heures) -->
@@ -393,7 +402,7 @@ function handleMouseLeave() {
           class="transition-all duration-300"
         />
 
-        <!-- Courbe 2 : PnL Copié Net (+ base 1000) -->
+        <!-- Courbe 2 : PnL Copié Net (+ base capital) -->
         <path
           v-if="showMyCumulativePnl && myPnlPath"
           :d="myPnlPath"
@@ -526,7 +535,7 @@ function handleMouseLeave() {
       <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
         <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Capital Actuel</span>
         <span class="text-sm font-bold font-mono text-slate-900 dark:text-white">
-          ${{ (1000 - metricsStore.metrics.totalInvestedUsdc + metricsStore.metrics.currentPositionsValueUsdc).toFixed(2) }}
+          ${{ (initialCapital - metricsStore.metrics.totalInvestedUsdc + metricsStore.metrics.currentPositionsValueUsdc).toFixed(2) }}
         </span>
       </div>
 

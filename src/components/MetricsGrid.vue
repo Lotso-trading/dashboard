@@ -1,20 +1,27 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
 
+const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 const tradesStore = useTradesStore();
 
 const isResetting = ref(false);
 
-const initialCapitalUsdc = 1000.0;
+const initialCapitalUsdc = computed(() => {
+  if (configStore.config?.maxAllocatedCapitalUsdc && configStore.config.maxAllocatedCapitalUsdc > 0) {
+    return configStore.config.maxAllocatedCapitalUsdc;
+  }
+  return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+});
 const availableCashUsdc = computed(() => {
   return Math.max(
     0,
-    initialCapitalUsdc - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
+    initialCapitalUsdc.value - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
   );
 });
 
@@ -23,11 +30,12 @@ const totalPortfolioValueUsdc = computed(() => {
 });
 
 const overallGainUsdc = computed(() => {
-  return totalPortfolioValueUsdc.value - initialCapitalUsdc;
+  return totalPortfolioValueUsdc.value - initialCapitalUsdc.value;
 });
 
 const overallGainPercent = computed(() => {
-  return (overallGainUsdc.value / initialCapitalUsdc) * 100;
+  if (initialCapitalUsdc.value <= 0) return 0;
+  return (overallGainUsdc.value / initialCapitalUsdc.value) * 100;
 });
 
 const cashPercentage = computed(() => {
@@ -38,7 +46,7 @@ const cashPercentage = computed(() => {
 async function handleResetSimulation(): Promise<void> {
   if (
     !confirm(
-      "Voulez-vous réinitialiser le portefeuille de simulation à 1 000 $ et purger les positions actuelles ?"
+      `Voulez-vous réinitialiser le portefeuille de simulation à ${initialCapitalUsdc.value} $ et purger les positions actuelles ?`
     )
   ) {
     return;
