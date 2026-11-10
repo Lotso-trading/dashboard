@@ -63,12 +63,31 @@ onMounted(async () => {
     }
   });
 
+  wsClient.on("target:created", () => {
+    targetsStore.fetchTargets();
+    metricsStore.fetchMetrics();
+  });
+
   wsClient.on("target:updated", (target) => {
     targetsStore.handleTargetUpdated(target as TargetTrader);
   });
 
+  wsClient.on("target:deleted", () => {
+    targetsStore.fetchTargets();
+    metricsStore.fetchMetrics();
+  });
+
   wsClient.on("config:updated", (config) => {
     configStore.handleConfigUpdated(config as RiskConfig);
+  });
+
+  wsClient.on("positions:cleared", () => {
+    positionsStore.fetchPositions();
+    metricsStore.fetchMetrics();
+  });
+
+  wsClient.on("metrics:updated", () => {
+    metricsStore.fetchMetrics();
   });
 
   wsClient.on("simulation:reset", () => {
@@ -77,11 +96,10 @@ onMounted(async () => {
     tradesStore.fetchTrades(1, 30);
   });
 
-  // Polling de secours toutes les 12 secondes
-  setInterval(() => {
+  wsClient.on("connected", () => {
     metricsStore.fetchMetrics();
     positionsStore.fetchPositions();
-  }, 12000);
+  });
 });
 </script>
 
