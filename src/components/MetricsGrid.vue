@@ -78,11 +78,11 @@ async function handleResetSimulation(): Promise<void> {
         <span class="text-xl">🛡️</span>
         <div>
           <h4 class="font-bold text-amber-600 dark:text-amber-400">
-            Capital Disponible Épuisé ({{ availableCashUsdc.toFixed(2) }} USDC restant)
+            Bouclier de Sécurité Lotso Activé ({{ availableCashUsdc.toFixed(2) }} USDC restant)
           </h4>
           <p class="text-slate-600 dark:text-slate-300 mt-0.5">
-            Le bouclier de sécurité a <strong>suspendu tout nouvel achat</strong> pour protéger vos fonds.
-            Aucun trade supplémentaire ne sera exécuté tant que des positions ne sont pas vendues ou réinitialisées.
+            Le protocole sous-marin a <strong>suspendu tout nouvel ordre furtif</strong> pour préserver vos fonds.
+            Aucun trade supplémentaire ne sera répliqué tant que des positions ne sont pas vendues ou réinitialisées.
           </p>
         </div>
       </div>
@@ -189,13 +189,13 @@ async function handleResetSimulation(): Promise<void> {
         </div>
       </div>
 
-      <!-- 4. Efficacité Copy-Trading & Win Rate -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-purple-400 dark:hover:border-purple-500/40 transition-all flex flex-col justify-between">
+      <!-- 4. Efficacité Furtive Lotso & Win Rate -->
+      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-rose-400 dark:hover:border-rose-500/40 transition-all flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Efficacité Copy-Trading</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-bold">
-              {{ metricsStore.metrics.activeTargetsCount }} BALEINES
+            <span class="font-medium">Efficacité Furtive Lotso</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 font-mono font-bold">
+              {{ metricsStore.metrics.activeTargetsCount }} CIBLES
             </span>
           </div>
           <div class="flex items-baseline gap-2">
@@ -208,10 +208,10 @@ async function handleResetSimulation(): Promise<void> {
 
         <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs">
           <span class="text-slate-500 dark:text-slate-400 font-mono">
-            {{ metricsStore.metrics.totalCopiedTrades }} ordres ($ {{ metricsStore.metrics.totalTradedVolumeUsdc.toFixed(0) }} vol)
+            {{ metricsStore.metrics.totalCopiedTrades }} ordres infiltrés ($ {{ metricsStore.metrics.totalTradedVolumeUsdc.toFixed(0) }} vol)
           </span>
           <span class="text-[11px] font-mono text-amber-600 dark:text-amber-400 font-medium">
-            🛡️ {{ metricsStore.metrics.totalRejectedTrades }} rejets
+            🛡️ {{ metricsStore.metrics.totalRejectedTrades }} alertes radar
           </span>
         </div>
       </div>

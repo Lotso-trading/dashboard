@@ -24,16 +24,16 @@ async function handleDelete(id: string, alias: string): Promise<void> {
     <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
       <div>
         <div class="flex items-center gap-2.5">
-          <span class="text-xl">🐋</span>
+          <span class="text-xl">🎯</span>
           <h3 class="text-base font-bold text-slate-900 dark:text-white">
-            Baleines Polymarket Suivies
+            Cibles & Baleines sous les Radars
           </h3>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono font-semibold">
-            {{ targetsStore.targets.length }} cibles
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono font-semibold">
+            {{ targetsStore.targets.length }} traquées
           </span>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Gestion des cibles et réplication instantanée de leurs ordres on-chain et CLOB
+          Surveillance silencieuse des portefeuilles cibles • Réplication chirurgicale sans impact de marché
         </p>
       </div>
 
@@ -71,9 +71,9 @@ async function handleDelete(id: string, alias: string): Promise<void> {
         <button
           type="button"
           @click="isModalOpen = true"
-          class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+          class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
         >
-          <span>+</span> Suivre une Baleine
+          <span>+</span> Traquer une Baleine
         </button>
       </div>
     </div>
@@ -205,9 +205,9 @@ async function handleDelete(id: string, alias: string): Promise<void> {
           v-if="targetsStore.targets.length === 0"
           class="col-span-full text-center py-12 text-slate-400 border border-dashed border-slate-200 dark:border-white/[0.1] rounded-2xl"
         >
-          <div class="text-3xl mb-2">🐋</div>
-          <p class="font-medium text-slate-700 dark:text-slate-300 text-sm">Aucune baleine Polymarket suivie pour le moment</p>
-          <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Suivre une Baleine" pour ajouter votre premier trader gagnant.</p>
+          <div class="text-3xl mb-2">🎯</div>
+          <p class="font-medium text-slate-700 dark:text-slate-300 text-sm">Aucune cible sous surveillance pour le moment</p>
+          <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Traquer une Baleine" pour activer la réplication furtive d'un trader.</p>
         </div>
       </div>
     </div>
@@ -321,9 +321,9 @@ async function handleDelete(id: string, alias: string): Promise<void> {
           <!-- Empty State in Table Mode -->
           <tr v-if="targetsStore.targets.length === 0">
             <td colspan="8" class="text-center py-10 text-slate-400">
-              <div class="text-2xl mb-2">🐋</div>
-              <p class="font-medium text-slate-700 dark:text-slate-300">Aucune baleine Polymarket suivie pour le moment</p>
-              <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Suivre une Baleine" pour ajouter votre premier trader gagnant.</p>
+              <div class="text-2xl mb-2">🎯</div>
+              <p class="font-medium text-slate-700 dark:text-slate-300">Aucune cible sous surveillance pour le moment</p>
+              <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Traquer une Baleine" pour activer la réplication furtive d'un trader.</p>
             </td>
           </tr>
         </tbody>

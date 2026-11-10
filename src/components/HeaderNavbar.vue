@@ -40,86 +40,86 @@ async function toggleBot(): Promise<void> {
 </script>
 
 <template>
-  <header class="border-b border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-[#0B0E14]/90 backdrop-blur sticky top-0 z-40 px-6 py-3.5 transition-colors">
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-      <!-- Logo et Statut -->
-      <div class="flex items-center gap-3">
-        <div class="h-9 w-9 rounded-lg bg-blue-600/10 border border-blue-500/30 dark:bg-blue-600/20 dark:border-blue-500/40 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 font-mono">
-          PM
+  <header class="border-b border-slate-200 dark:border-rose-950/40 bg-white/95 dark:bg-[#070A10]/95 backdrop-blur sticky top-0 z-40 px-4 py-2 transition-colors">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      <!-- Logo Lotso Officiel & Statut -->
+      <div class="flex items-center gap-2.5">
+        <div class="relative shrink-0 flex items-center">
+          <img
+            src="/lotso-avatar.jpg"
+            alt="Lotso"
+            class="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-rose-500 shadow-xs ring-1 ring-rose-400/30 shrink-0 select-none"
+          />
+          <span
+            class="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-[#070A10]"
+            :class="configStore.config?.isBotRunning ? 'bg-emerald-500' : 'bg-rose-500'"
+          ></span>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="font-bold text-base tracking-tight text-slate-900 dark:text-white font-mono">Polymarket Copy-Trading</span>
-            <span
-              :class="[
-                'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold',
-                configStore.config?.dryRun
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-              ]"
-            >
-              <span class="h-1.5 w-1.5 rounded-full" :class="configStore.config?.dryRun ? 'bg-amber-500 dark:bg-amber-400' : 'bg-emerald-500 dark:bg-emerald-400'"></span>
-              {{ configStore.config?.dryRun ? 'SIMULATION DRY-RUN' : 'LIVE RÉEL' }}
-            </span>
-          </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Terminal Financier & Moteur de Réplication</p>
+
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <span class="font-mono font-black text-sm tracking-wider text-slate-900 dark:text-white flex items-center gap-1">
+            <span class="text-rose-600 dark:text-rose-500">LOTSO</span>
+          </span>
+          <span
+            :class="[
+              'px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-tight border',
+              configStore.config?.dryRun
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+            ]"
+          >
+            {{ configStore.config?.dryRun ? '[DRY-RUN]' : '[LIVE]' }}
+          </span>
         </div>
       </div>
 
-      <!-- Quick Metrics Bar -->
-      <div class="hidden md:flex items-center gap-6 text-sm">
-        <div class="flex flex-col">
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Portefeuille ({{ initialCapitalUsdc }} $)</span>
-          <span class="font-mono font-bold text-slate-900 dark:text-white">
-            ${{ totalPortfolioValueUsdc.toFixed(2) }}
-          </span>
+      <!-- Quick Metrics Bar (Bandeau Télémétrie Monoligne Haute Densité) -->
+      <div class="hidden md:flex items-center gap-3 text-xs font-mono bg-slate-100/80 dark:bg-slate-900/60 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">VAL</span>
+          <span class="font-bold text-slate-900 dark:text-white">${{ totalPortfolioValueUsdc.toFixed(2) }}</span>
         </div>
-
-        <div class="flex flex-col">
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cash Dispo</span>
-          <span class="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-            ${{ availableCashUsdc.toFixed(2) }}
-          </span>
+        <span class="text-slate-300 dark:text-slate-700">|</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">CASH</span>
+          <span class="font-semibold text-emerald-600 dark:text-emerald-400">${{ availableCashUsdc.toFixed(2) }}</span>
         </div>
-
-        <div class="flex flex-col">
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">PnL Latent</span>
+        <span class="text-slate-300 dark:text-slate-700">|</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">PNL</span>
           <span
-            class="font-mono font-semibold"
+            class="font-semibold"
             :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
           >
             {{ positionsStore.totalUnrealizedPnlUsdc >= 0 ? '+' : '' }}${{ positionsStore.totalUnrealizedPnlUsdc.toFixed(2) }}
           </span>
         </div>
-
-        <div class="flex flex-col">
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Baleines</span>
-          <span class="font-mono font-semibold text-blue-600 dark:text-blue-400">
-            {{ metricsStore.metrics.activeTargetsCount }} suivies
-          </span>
+        <span class="text-slate-300 dark:text-slate-700">|</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-semibold">CIBLES</span>
+          <span class="font-bold text-rose-600 dark:text-rose-400">{{ metricsStore.metrics.activeTargetsCount }}</span>
         </div>
       </div>
 
       <!-- Action Bouton Statut & Thème -->
-      <div class="flex items-center gap-3">
-        <!-- Switcher de Thème Apple (Clair / Sombre / Auto) -->
+      <div class="flex items-center gap-2 sm:gap-2.5">
         <ThemeToggle />
 
         <button
           type="button"
           @click="toggleBot"
           :class="[
-            'px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 border cursor-pointer',
+            'px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition flex items-center gap-1.5 border cursor-pointer shadow-xs',
             configStore.config?.isBotRunning
               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
               : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
           ]"
         >
           <span
-            class="h-2 w-2 rounded-full animate-pulse"
-            :class="configStore.config?.isBotRunning ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-rose-500 dark:bg-rose-400'"
+            class="h-1.5 w-1.5 rounded-full"
+            :class="configStore.config?.isBotRunning ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"
           ></span>
-          {{ configStore.config?.isBotRunning ? 'BOT ACTIF' : 'BOT EN PAUSE' }}
+          {{ configStore.config?.isBotRunning ? 'LOTSO ACTIF' : 'EN PAUSE' }}
         </button>
       </div>
     </div>

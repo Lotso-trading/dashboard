@@ -1,14 +1,30 @@
 <script setup lang="ts">
+import type { OpenPosition } from "@polymarket-copy/shared";
 import { computed, ref } from "vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 
+export interface ClosedPositionsTotals {
+  count: number;
+  totalInvested: number;
+  totalPayout: number;
+  totalGains: number;
+  totalLosses: number;
+  netPnl: number;
+  totalShares: number;
+  avgEntryPrice: number;
+  winCount: number;
+  lossCount: number;
+  winRate: number;
+  roiPercent: number;
+}
+
 const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 
-const initialCapitalUsdc = computed(() => {
+const initialCapitalUsdc = computed<number>((): number => {
   if (
     configStore.config?.maxAllocatedCapitalUsdc &&
     configStore.config.maxAllocatedCapitalUsdc > 0
@@ -17,12 +33,12 @@ const initialCapitalUsdc = computed(() => {
   }
   return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
 });
-const lastSyncTime = ref(
+const lastSyncTime = ref<string>(
   new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
 );
 const filterStatus = ref<"ALL" | "WIN" | "LOSS">("ALL");
 
-const availableCashUsdc = computed(() => {
+const availableCashUsdc = computed<number>((): number => {
   return Math.max(
     0,
     initialCapitalUsdc.value -
@@ -31,49 +47,72 @@ const availableCashUsdc = computed(() => {
   );
 });
 
-const totalPortfolioValueUsdc = computed(() => {
+const totalPortfolioValueUsdc = computed<number>((): number => {
   return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
 });
 
-const overallRoiPercent = computed(() => {
+const overallRoiPercent = computed<number>((): number => {
   if (initialCapitalUsdc.value <= 0) return 0;
   return (
     ((totalPortfolioValueUsdc.value - initialCapitalUsdc.value) / initialCapitalUsdc.value) * 100
   );
 });
 
-const maxPotentialNetProfit = computed(() => {
+const maxPotentialNetProfit = computed<number>((): number => {
   return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
 });
 
-const filteredClosedPositions = computed(() => {
+const filteredClosedPositions = computed<OpenPosition[]>((): OpenPosition[] => {
   if (filterStatus.value === "WIN") {
-    return positionsStore.closedPositions.filter((p) => p.closeReason === "RESOLVED_WIN");
+    return positionsStore.closedPositions.filter(
+      (p: OpenPosition): boolean => p.closeReason === "RESOLVED_WIN"
+    );
   }
   if (filterStatus.value === "LOSS") {
-    return positionsStore.closedPositions.filter((p) => p.closeReason === "RESOLVED_LOSS");
+    return positionsStore.closedPositions.filter(
+      (p: OpenPosition): boolean => p.closeReason === "RESOLVED_LOSS"
+    );
   }
   return positionsStore.closedPositions;
 });
 
-const filteredTotals = computed(() => {
-  const list = filteredClosedPositions.value;
-  const count = list.length;
-  const totalInvested = list.reduce((acc, p) => acc + (p.totalInvestedUsdc || 0), 0);
-  const totalPayout = list.reduce((acc, p) => acc + (p.settledPayoutUsdc || 0), 0);
-  const totalGains = list
-    .filter((p) => (p.realizedPnlUsdc ?? 0) > 0)
-    .reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
-  const totalLosses = list
-    .filter((p) => (p.realizedPnlUsdc ?? 0) < 0)
-    .reduce((acc, p) => acc + Math.abs(p.realizedPnlUsdc ?? 0), 0);
-  const netPnl = list.reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
-  const totalShares = list.reduce((acc, p) => acc + (p.totalShares || 0), 0);
-  const avgEntryPrice = totalShares > 0 ? totalInvested / totalShares : 0;
-  const winCount = list.filter((p) => p.closeReason === "RESOLVED_WIN").length;
-  const lossCount = list.filter((p) => p.closeReason === "RESOLVED_LOSS").length;
-  const winRate = count > 0 ? (winCount / count) * 100 : 0;
-  const roiPercent = totalInvested > 0 ? (netPnl / totalInvested) * 100 : 0;
+const filteredTotals = computed<ClosedPositionsTotals>((): ClosedPositionsTotals => {
+  const list: OpenPosition[] = filteredClosedPositions.value;
+  const count: number = list.length;
+  const totalInvested: number = list.reduce(
+    (acc: number, pos: OpenPosition): number => acc + (pos.totalInvestedUsdc || 0),
+    0
+  );
+  const totalPayout: number = list.reduce(
+    (acc: number, pos: OpenPosition): number => acc + (pos.settledPayoutUsdc || 0),
+    0
+  );
+  const totalGains: number = list
+    .filter((pos: OpenPosition): boolean => (pos.realizedPnlUsdc ?? 0) > 0)
+    .reduce((acc: number, pos: OpenPosition): number => acc + (pos.realizedPnlUsdc ?? 0), 0);
+  const totalLosses: number = list
+    .filter((pos: OpenPosition): boolean => (pos.realizedPnlUsdc ?? 0) < 0)
+    .reduce(
+      (acc: number, pos: OpenPosition): number => acc + Math.abs(pos.realizedPnlUsdc ?? 0),
+      0
+    );
+  const netPnl: number = list.reduce(
+    (acc: number, pos: OpenPosition): number => acc + (pos.realizedPnlUsdc ?? 0),
+    0
+  );
+  const totalShares: number = list.reduce(
+    (acc: number, pos: OpenPosition): number => acc + (pos.totalShares || 0),
+    0
+  );
+  const avgEntryPrice: number = totalShares > 0 ? totalInvested / totalShares : 0;
+  const winCount: number = list.filter(
+    (pos: OpenPosition): boolean => pos.closeReason === "RESOLVED_WIN"
+  ).length;
+  const lossCount: number = list.filter(
+    (pos: OpenPosition): boolean => pos.closeReason === "RESOLVED_LOSS"
+  ).length;
+  const winRate: number = count > 0 ? (winCount / count) * 100 : 0;
+  const roiPercent: number = totalInvested > 0 ? (netPnl / totalInvested) * 100 : 0;
 
   return {
     count,
@@ -120,7 +159,7 @@ function formatDate(timestamp?: number): string {
         <div class="flex items-center gap-2.5">
           <span class="text-2xl">💎</span>
           <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
-            Bilan Financier & Synthèse Temps Direct
+            Bilan Financier & Synthèse Lotso
           </h2>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
             <span class="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
@@ -128,7 +167,7 @@ function formatDate(timestamp?: number): string {
           </span>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Grand livre comptable automatisé, résolutions d'oracles Polymarket CLOB et valorisation instantanée • Mis à jour à {{ lastSyncTime }}
+          Grand livre comptable automatisé, résolutions d'oracles Polymarket CLOB et valorisation instantanée de Lotso • Mis à jour à {{ lastSyncTime }}
         </p>
       </div>
 
@@ -137,7 +176,7 @@ function formatDate(timestamp?: number): string {
           type="button"
           @click="refreshData"
           :disabled="positionsStore.isSettling"
-          class="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-blue-400 dark:hover:border-blue-500/40 shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+          class="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-rose-400 dark:hover:border-rose-500/40 shadow-xs transition-all flex items-center gap-2 cursor-pointer"
         >
           <span :class="{ 'animate-spin': positionsStore.isSettling }">🔄</span>
           {{ positionsStore.isSettling ? 'Vérification...' : 'Actualiser & Encaisser' }}
@@ -149,7 +188,7 @@ function formatDate(timestamp?: number): string {
     <div class="space-y-3">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2">
-          <span>🏛️</span> Grand Livre du Portefeuille (Base 1 000,00 $ Initial)
+          <span>🏛️</span> Grand Livre Financier Lotso (Base 1 000,00 $ Initial)
         </h3>
         <span class="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400">
           ROI Global : {{ overallRoiPercent >= 0 ? '+' : '' }}{{ overallRoiPercent.toFixed(1) }} %

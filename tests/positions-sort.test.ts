@@ -41,23 +41,45 @@ const mockBasePosition: OpenPosition = {
 };
 
 Deno.test("sortPositionsByExpiry - trie par date d'échéance croissante (se termine bientôt)", () => {
-  const p1: OpenPosition = { ...mockBasePosition, id: "far_future", endDate: "2026-12-01T00:00:00Z" };
+  const p1: OpenPosition = {
+    ...mockBasePosition,
+    id: "far_future",
+    endDate: "2026-12-01T00:00:00Z",
+  };
   const p2: OpenPosition = { ...mockBasePosition, id: "tomorrow", endDate: "2026-11-11T00:00:00Z" };
-  const p3: OpenPosition = { ...mockBasePosition, id: "in_one_hour", endDate: "2026-11-10T16:00:00Z" };
+  const p3: OpenPosition = {
+    ...mockBasePosition,
+    id: "in_one_hour",
+    endDate: "2026-11-10T16:00:00Z",
+  };
   const p4: OpenPosition = { ...mockBasePosition, id: "no_date", endDate: undefined };
 
   const sorted = sortPositionsByExpiry([p1, p4, p2, p3], true);
 
-  assertEquals(sorted.map((p) => p.id), ["in_one_hour", "tomorrow", "far_future", "no_date"]);
+  assertEquals(
+    sorted.map((p) => p.id),
+    ["in_one_hour", "tomorrow", "far_future", "no_date"]
+  );
 });
 
 Deno.test("sortPositionsByExpiry - trie par date d'échéance décroissante (se termine plus tard)", () => {
-  const p1: OpenPosition = { ...mockBasePosition, id: "far_future", endDate: "2026-12-01T00:00:00Z" };
+  const p1: OpenPosition = {
+    ...mockBasePosition,
+    id: "far_future",
+    endDate: "2026-12-01T00:00:00Z",
+  };
   const p2: OpenPosition = { ...mockBasePosition, id: "tomorrow", endDate: "2026-11-11T00:00:00Z" };
-  const p3: OpenPosition = { ...mockBasePosition, id: "in_one_hour", endDate: "2026-11-10T16:00:00Z" };
+  const p3: OpenPosition = {
+    ...mockBasePosition,
+    id: "in_one_hour",
+    endDate: "2026-11-10T16:00:00Z",
+  };
   const p4: OpenPosition = { ...mockBasePosition, id: "no_date", endDate: undefined };
 
   const sorted = sortPositionsByExpiry([p1, p4, p2, p3], false);
 
-  assertEquals(sorted.map((p) => p.id), ["far_future", "tomorrow", "in_one_hour", "no_date"]);
+  assertEquals(
+    sorted.map((p) => p.id),
+    ["far_future", "tomorrow", "in_one_hour", "no_date"]
+  );
 });

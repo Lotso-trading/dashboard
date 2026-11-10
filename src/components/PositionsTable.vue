@@ -207,14 +207,14 @@ function toggleExpirySort() {
         <div class="flex items-center gap-2.5">
           <span class="text-xl">📑</span>
           <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-            Positions & Payouts Polymarket
+            Positions & Infiltrations Ouvertes
           </h3>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium font-mono">
-            Pro Engine
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-medium font-mono">
+            Lotso Stealth
           </span>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Suivi haute précision du capital, échéances en heure locale et encaissement garanti à 1,00 $
+          Suivi temps réel des parts acquises sous les radars et encaissement officiel garanti à 1,00 $ USDC
         </p>
       </div>
 

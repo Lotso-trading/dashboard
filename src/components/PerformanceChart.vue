@@ -218,10 +218,10 @@ function handleMouseLeave() {
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800/80">
       <div>
         <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <span>📈</span> Courbe de Performance & Suivi des Trades (Baleine vs Copie)
+          <span>📈</span> Courbe de Performance Lotso vs Cibles
         </h3>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Évolution en temps réel de votre capital (1 000 $ base), vos gains copiés et les trades répliqués
+          Évolution en temps réel de votre capital, comparaison des gains et traçabilité des ordres répliqués
         </p>
       </div>
 

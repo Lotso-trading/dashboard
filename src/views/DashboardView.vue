@@ -87,20 +87,20 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-6">
-    <!-- Navigation Tabs -->
+    <!-- Navigation Tabs Lotso -->
     <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto text-xs font-semibold transition-colors">
-      <!-- 💎 Synthèse Temps Direct -->
+      <!-- 💎 Synthèse Financière -->
       <button
         type="button"
         @click="currentTab = 'SYNTHESIS'"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'SYNTHESIS'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>💎</span> Synthèse en Direct
+        <span>💎</span> Synthèse Financière
         <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono font-bold animate-pulse">
           LIVE
         </span>
@@ -112,11 +112,11 @@ onMounted(async () => {
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'OVERVIEW'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>📊</span> Vue d'Ensemble & PnL
+        <span>📊</span> Cockpit Stratégique
       </button>
 
       <button
@@ -125,12 +125,12 @@ onMounted(async () => {
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'TARGETS'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>🐋</span> Baleines Suivies
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
+        <span>🎯</span> Radars & Cibles
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 font-mono font-bold">
           {{ targetsStore.targets.length }}
         </span>
       </button>
@@ -141,11 +141,11 @@ onMounted(async () => {
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'POSITIONS'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>📑</span> Positions Ouvertes
+        <span>📑</span> Positions Infiltrées
         <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
           {{ positionsStore.positions.length }}
         </span>
@@ -157,11 +157,11 @@ onMounted(async () => {
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'FEED'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>⚡</span> Flux d'Activité
+        <span>⚡</span> Journal Furtif
       </button>
 
       <button
@@ -170,11 +170,11 @@ onMounted(async () => {
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'RISK'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>⚙️</span> Gestion du Risque
+        <span>⚙️</span> Protocole & Risque
       </button>
     </div>
 
@@ -193,21 +193,21 @@ onMounted(async () => {
 
       <!-- 3. Cockpit Opérationnel Bipolaire (Positions Actives 50% | Flux Live 50%) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <!-- Volet Gauche : Aperçu des Positions Actives Prioritaires -->
+        <!-- Volet Gauche : Aperçu des Positions Infiltrées Prioritaires -->
         <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-6 shadow-xs space-y-4 transition-colors">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
               <div class="flex items-center gap-2">
                 <span class="text-xl">📑</span>
                 <h3 class="text-base font-bold text-slate-900 dark:text-white">
-                  Positions Ouvertes Prioritaires
+                  Positions Sous Surveillance (Lotso)
                 </h3>
-                <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono font-bold">
+                <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono font-bold">
                   {{ positionsStore.positions.length }}
                 </span>
               </div>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Paiement garanti de 1,00 $ par part gagnante à l'échéance officielle
+                Acquisitions sous les radars • Rachat garanti 1,00 $ par part à l'échéance Polymarket
               </p>
             </div>
 

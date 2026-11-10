@@ -10,7 +10,7 @@ import DashboardView from "./views/DashboardView.vue";
       <DashboardView />
     </main>
     <footer class="border-t border-slate-200 dark:border-slate-900 py-4 text-center text-xs text-slate-500 dark:text-slate-400 font-mono transition-colors">
-      Copy-Trading Engine • Micro-Services Conteneurisés Deno 2 • Zero Any
+      Lotso Terminal • Protocole Furtif de Copy-Trading Polymarket • Micro-Services Deno 2 • Zero Any • Mode Sous-Marin
     </footer>
   </div>
 </template>

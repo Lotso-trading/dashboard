@@ -1,5 +1,10 @@
 export type WsEventHandler = (data: unknown) => void;
 
+interface WsServerMessage {
+  event?: string;
+  data?: unknown;
+}
+
 class WebSocketClient {
   private socket: WebSocket | null = null;
   private handlers: Map<string, Set<WsEventHandler>> = new Map();
@@ -26,7 +31,7 @@ class WebSocketClient {
 
       this.socket.onmessage = (event) => {
         try {
-          const payload = JSON.parse(event.data);
+          const payload = JSON.parse(event.data) as WsServerMessage;
           if (payload?.event) {
             this.emit(payload.event, payload.data);
           }

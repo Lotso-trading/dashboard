@@ -83,10 +83,10 @@ async function handleSave(): Promise<void> {
     <!-- Header -->
     <div class="pb-4 border-b border-slate-200 dark:border-slate-800 mb-6">
       <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-        <span>⚙️</span> Gestion du Risque & Paramètres d'Exécution
+        <span>⚙️</span> Protocole de Risque & Furtivité Lotso
       </h3>
       <p class="text-xs text-slate-500 dark:text-slate-400">
-        Définition des règles de dimensionnement du capital, anti-slippage et alertes
+        Règles de dimensionnement du capital, anti-slippage et seuils de discrétion opérationnelle
       </p>
     </div>
 
@@ -97,7 +97,7 @@ async function handleSave(): Promise<void> {
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>💼</span> Capital Alloué au Bot (USDC)
+              <span>💼</span> Capital Alloué à Lotso (USDC)
             </label>
             <span
               class="font-mono text-xs font-bold px-2 py-0.5 rounded border"
@@ -363,8 +363,8 @@ async function handleSave(): Promise<void> {
         <!-- Mode Dry Run -->
         <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <div class="text-xs font-semibold text-slate-900 dark:text-white">Paper Trading (Dry-Run)</div>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Simulation sans engager de vrais fonds</p>
+            <div class="text-xs font-semibold text-slate-900 dark:text-white">Simulation Furtive (Dry-Run)</div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Calcul des ordres et surveillance sans engager de fonds réels</p>
           </div>
           <button
             type="button"

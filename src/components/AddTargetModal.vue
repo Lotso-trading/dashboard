@@ -54,7 +54,7 @@ async function handleSubmit(): Promise<void> {
     <div class="bg-white dark:bg-[#121721] border border-slate-200 dark:border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl relative transition-colors">
       <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
         <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <span>🐋</span> Suivre une Nouvelle Baleine Polymarket
+          <span>🎯</span> Traquer une Nouvelle Cible (Baleine)
         </h3>
         <button
           type="button"
@@ -137,9 +137,9 @@ async function handleSubmit(): Promise<void> {
           <button
             type="submit"
             :disabled="isSubmitting"
-            class="px-5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50 cursor-pointer shadow-sm"
+            class="px-5 py-2 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition disabled:opacity-50 cursor-pointer shadow-sm"
           >
-            {{ isSubmitting ? 'Enregistrement...' : 'Ajouter la Baleine' }}
+            {{ isSubmitting ? 'Infiltration...' : 'Activer la Surveillance Furtive' }}
           </button>
         </div>
       </form>
