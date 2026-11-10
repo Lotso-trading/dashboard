@@ -68,7 +68,7 @@ onMounted(async () => {
   });
 
   wsClient.on("config:updated", (config) => {
-    configStore.handleConfigUpdated(config as RiskConfig & { isBotRunning: boolean });
+    configStore.handleConfigUpdated(config as RiskConfig);
   });
 
   wsClient.on("simulation:reset", () => {

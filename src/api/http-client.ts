@@ -121,12 +121,12 @@ class HttpClient {
   }
 
   // --- Configuration du Risque ---
-  async getConfig(): Promise<RiskConfig & { isBotRunning: boolean }> {
-    return await this.request<RiskConfig & { isBotRunning: boolean }>("/config");
+  async getConfig(): Promise<RiskConfig> {
+    return await this.request<RiskConfig>("/config");
   }
 
-  async updateConfig(dto: UpdateRiskConfigInput): Promise<RiskConfig & { isBotRunning: boolean }> {
-    return await this.request<RiskConfig & { isBotRunning: boolean }>("/config", {
+  async updateConfig(dto: UpdateRiskConfigInput): Promise<RiskConfig> {
+    return await this.request<RiskConfig>("/config", {
       method: "PUT",
       body: JSON.stringify(dto),
     });

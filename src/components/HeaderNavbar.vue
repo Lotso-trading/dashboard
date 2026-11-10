@@ -29,14 +29,6 @@ const availableCashUsdc = computed(() => {
 const totalPortfolioValueUsdc = computed(() => {
   return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
 });
-
-async function toggleBot(): Promise<void> {
-  const current = configStore.config?.isBotRunning ?? true;
-  await configStore.updateConfig({
-    // @ts-expect-error isBotRunning supported by API
-    isBotRunning: !current,
-  });
-}
 </script>
 
 <template>
@@ -52,7 +44,13 @@ async function toggleBot(): Promise<void> {
           />
           <span
             class="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-[#070A10]"
-            :class="configStore.config?.isBotRunning ? 'bg-emerald-500' : 'bg-rose-500'"
+            :class="
+              !configStore.config?.isBotOnline
+                ? 'bg-slate-400'
+                : configStore.config?.isBotRunning
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-rose-500'
+            "
           ></span>
         </div>
 
@@ -101,26 +99,9 @@ async function toggleBot(): Promise<void> {
         </div>
       </div>
 
-      <!-- Action Bouton Statut & Thème -->
+      <!-- Thème Toggle -->
       <div class="flex items-center gap-2 sm:gap-2.5">
         <ThemeToggle />
-
-        <button
-          type="button"
-          @click="toggleBot"
-          :class="[
-            'px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition flex items-center gap-1.5 border cursor-pointer shadow-xs',
-            configStore.config?.isBotRunning
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
-          ]"
-        >
-          <span
-            class="h-1.5 w-1.5 rounded-full"
-            :class="configStore.config?.isBotRunning ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'"
-          ></span>
-          {{ configStore.config?.isBotRunning ? 'LOTSO ACTIF' : 'EN PAUSE' }}
-        </button>
       </div>
     </div>
   </header>

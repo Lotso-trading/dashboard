@@ -1,3 +1,5 @@
+import { ref } from "vue";
+
 export type WsEventHandler = (data: unknown) => void;
 
 interface WsServerMessage {
@@ -9,6 +11,7 @@ class WebSocketClient {
   private socket: WebSocket | null = null;
   private handlers: Map<string, Set<WsEventHandler>> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  public readonly isConnected = ref(false);
 
   connect(): void {
     if (
@@ -26,6 +29,7 @@ class WebSocketClient {
       this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
+        this.isConnected.value = true;
         console.log("[WebSocket] Connecté au flux temps réel de l'API");
       };
 
@@ -41,14 +45,17 @@ class WebSocketClient {
       };
 
       this.socket.onclose = () => {
+        this.isConnected.value = false;
         this.socket = null;
         this.scheduleReconnect();
       };
 
       this.socket.onerror = () => {
+        this.isConnected.value = false;
         this.socket?.close();
       };
     } catch (_err: unknown) {
+      this.isConnected.value = false;
       this.scheduleReconnect();
     }
   }

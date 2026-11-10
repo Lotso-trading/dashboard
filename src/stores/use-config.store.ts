@@ -4,7 +4,7 @@ import { ref } from "vue";
 import { api } from "../api/http-client.ts";
 
 export const useConfigStore = defineStore("config", () => {
-  const config = ref<RiskConfig & { isBotRunning: boolean }>({
+  const config = ref<RiskConfig>({
     balancePercentPerTrade: 0.03,
     maxSlippagePercent: 2.0,
     maxCapPerTradeUsdc: 50.0,
@@ -18,6 +18,7 @@ export const useConfigStore = defineStore("config", () => {
     maxAllocatedCapitalUsdc: 0,
     profitReinvestmentPercent: 50.0,
     isBotRunning: true,
+    isBotOnline: false,
   });
 
   const isLoading = ref(false);
@@ -38,7 +39,7 @@ export const useConfigStore = defineStore("config", () => {
     config.value = updated;
   }
 
-  function handleConfigUpdated(updated: RiskConfig & { isBotRunning: boolean }): void {
+  function handleConfigUpdated(updated: RiskConfig): void {
     config.value = updated;
   }
 
