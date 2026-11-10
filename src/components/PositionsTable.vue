@@ -139,6 +139,64 @@ function getExpiryBadgeClass(isoDate?: string): string {
 const netPotentialProfitUsdc = computed(() => {
   return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
 });
+
+export type SortOption =
+  | "EXPIRY_ASC"
+  | "EXPIRY_DESC"
+  | "INVESTED_DESC"
+  | "PAYOUT_DESC"
+  | "OPENED_DESC";
+
+const sortOption = ref<SortOption>("EXPIRY_ASC");
+
+function getEndDateTimestamp(isoDate?: string): number {
+  if (!isoDate) return Number.POSITIVE_INFINITY;
+  const time = new Date(isoDate).getTime();
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+}
+
+const sortedOpenPositions = computed(() => {
+  const list = [...positionsStore.positions];
+
+  return list.sort((a, b) => {
+    switch (sortOption.value) {
+      case "EXPIRY_ASC": {
+        const timeA = getEndDateTimestamp(a.endDate);
+        const timeB = getEndDateTimestamp(b.endDate);
+        if (timeA !== timeB) return timeA - timeB;
+        return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+      }
+      case "EXPIRY_DESC": {
+        const timeA = getEndDateTimestamp(a.endDate);
+        const timeB = getEndDateTimestamp(b.endDate);
+        if (timeA === Number.POSITIVE_INFINITY && timeB === Number.POSITIVE_INFINITY) return 0;
+        if (timeA === Number.POSITIVE_INFINITY) return 1;
+        if (timeB === Number.POSITIVE_INFINITY) return -1;
+        if (timeA !== timeB) return timeB - timeA;
+        return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+      }
+      case "INVESTED_DESC":
+        return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+      case "PAYOUT_DESC": {
+        const profitA = Math.max(0, (a.totalShares || 0) - (a.totalInvestedUsdc || 0));
+        const profitB = Math.max(0, (b.totalShares || 0) - (b.totalInvestedUsdc || 0));
+        return profitB - profitA;
+      }
+      case "OPENED_DESC":
+        return (b.openedAt || 0) - (a.openedAt || 0);
+      default:
+        return 0;
+    }
+  });
+});
+
+function toggleExpirySort() {
+  if (sortOption.value === "EXPIRY_ASC") {
+    sortOption.value = "EXPIRY_DESC";
+  } else {
+    sortOption.value = "EXPIRY_ASC";
+  }
+}
 </script>
 
 <template>
@@ -305,41 +363,65 @@ const netPotentialProfitUsdc = computed(() => {
       </div>
     </div>
 
-    <!-- Segmented Tabs (Apple Pill Switcher) -->
-    <div class="flex items-center gap-2 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] p-1 rounded-xl w-fit text-xs font-semibold">
-      <button
-        type="button"
-        @click="activeTab = 'OPEN'"
-        :class="[
-          'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
-          activeTab === 'OPEN'
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-        ]"
-      >
-        <span>🟢</span>
-        <span>Positions Ouvertes</span>
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
-          {{ positionsStore.positions.length }}
-        </span>
-      </button>
+    <!-- Segmented Tabs (Apple Pill Switcher) & Sort Control -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] p-1 rounded-xl w-fit text-xs font-semibold">
+        <button
+          type="button"
+          @click="activeTab = 'OPEN'"
+          :class="[
+            'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
+            activeTab === 'OPEN'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          ]"
+        >
+          <span>🟢</span>
+          <span>Positions Ouvertes</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
+            {{ positionsStore.positions.length }}
+          </span>
+        </button>
 
-      <button
-        type="button"
-        @click="activeTab = 'CLOSED'"
-        :class="[
-          'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
-          activeTab === 'CLOSED'
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-        ]"
-      >
-        <span>🏁</span>
-        <span>Clôturées & Encaissées</span>
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
-          {{ positionsStore.closedPositions.length }}
+        <button
+          type="button"
+          @click="activeTab = 'CLOSED'"
+          :class="[
+            'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
+            activeTab === 'CLOSED'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          ]"
+        >
+          <span>🏁</span>
+          <span>Clôturées & Encaissées</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
+            {{ positionsStore.closedPositions.length }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Sélecteur de Tri pour Positions Ouvertes -->
+      <div v-if="activeTab === 'OPEN'" class="flex items-center gap-2 text-xs">
+        <span class="text-slate-500 dark:text-slate-400 font-medium hidden sm:inline-flex items-center gap-1">
+          <span>↕️</span> Trier par :
         </span>
-      </button>
+        <div class="relative">
+          <select
+            v-model="sortOption"
+            class="bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl px-3 py-1.5 pr-8 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
+          >
+            <option value="EXPIRY_ASC">⏳ Échéance : Se termine bientôt</option>
+            <option value="EXPIRY_DESC">📅 Échéance : Se termine plus tard</option>
+            <option value="INVESTED_DESC">💼 Mise engagée (décroissante)</option>
+            <option value="PAYOUT_DESC">🏆 Gain net potentiel (décroissant)</option>
+            <option value="OPENED_DESC">🕒 Plus récentes en premier</option>
+          </select>
+          <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
+            ▼
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- TAB 1 : POSITIONS OUVERTES -->
@@ -347,7 +429,7 @@ const netPotentialProfitUsdc = computed(() => {
       <!-- MODE CARTES BENTO (Apple Cards Layout) -->
       <div v-if="viewMode === 'CARDS'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div
-          v-for="position in positionsStore.positions"
+          v-for="position in sortedOpenPositions"
           :key="position.id"
           class="bg-slate-50/70 dark:bg-white/[0.02] hover:bg-slate-100/70 dark:hover:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.07] hover:border-slate-300 dark:hover:border-white/[0.15] rounded-2xl p-5 space-y-4 transition-all duration-200 flex flex-col justify-between group shadow-xs hover:shadow-md"
         >
@@ -451,7 +533,7 @@ const netPotentialProfitUsdc = computed(() => {
 
         <!-- Empty State -->
         <div
-          v-if="positionsStore.positions.length === 0"
+          v-if="sortedOpenPositions.length === 0"
           class="col-span-full py-16 text-center text-slate-400 border border-dashed border-slate-200 dark:border-white/[0.1] rounded-2xl"
         >
           <div class="text-3xl mb-2">📑</div>
@@ -469,7 +551,20 @@ const netPotentialProfitUsdc = computed(() => {
             <tr class="border-b border-slate-200 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
               <th class="py-3.5 px-6">Marché / Prédiction</th>
               <th class="py-3 px-4">Issue</th>
-              <th class="py-3 px-4">Échéance (🇹🇭 Locale)</th>
+              <th
+                @click="toggleExpirySort"
+                class="py-3 px-4 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 select-none transition group"
+                title="Cliquer pour trier par date d'échéance"
+              >
+                <div class="flex items-center gap-1.5">
+                  <span>Échéance (🇹🇭 Locale)</span>
+                  <span class="text-blue-600 dark:text-blue-400 font-bold text-xs transition-transform">
+                    <template v-if="sortOption === 'EXPIRY_ASC'">↑</template>
+                    <template v-else-if="sortOption === 'EXPIRY_DESC'">↓</template>
+                    <template v-else><span class="opacity-40 group-hover:opacity-100">↕</span></template>
+                  </span>
+                </div>
+              </th>
               <th class="py-3 px-4">Parts & Cote</th>
               <th class="py-3 px-4">Mise Engagée</th>
               <th class="py-3 px-4">Revente Instant</th>
@@ -478,7 +573,7 @@ const netPotentialProfitUsdc = computed(() => {
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-white/[0.04] text-slate-700 dark:text-slate-200">
             <tr
-              v-for="position in positionsStore.positions"
+              v-for="position in sortedOpenPositions"
               :key="position.id"
               class="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition"
             >
@@ -552,7 +647,7 @@ const netPotentialProfitUsdc = computed(() => {
               </td>
             </tr>
 
-            <tr v-if="positionsStore.positions.length === 0">
+            <tr v-if="sortedOpenPositions.length === 0">
               <td colspan="7" class="py-12 text-center text-slate-400 text-xs">
                 Aucune position ouverte actuellement.
               </td>

@@ -65,6 +65,17 @@ export const usePositionsStore = defineStore("positions", () => {
       .sort((a, b) => (b.realizedPnlUsdc ?? 0) - (a.realizedPnlUsdc ?? 0));
   });
 
+  const openPositionsSortedByExpiry = computed(() => {
+    return [...positions.value].sort((a, b) => {
+      const timeA = a.endDate ? new Date(a.endDate).getTime() : Number.POSITIVE_INFINITY;
+      const timeB = b.endDate ? new Date(b.endDate).getTime() : Number.POSITIVE_INFINITY;
+      const safeA = Number.isNaN(timeA) ? Number.POSITIVE_INFINITY : timeA;
+      const safeB = Number.isNaN(timeB) ? Number.POSITIVE_INFINITY : timeB;
+      if (safeA !== safeB) return safeA - safeB;
+      return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+    });
+  });
+
   async function fetchPositions(): Promise<void> {
     isLoading.value = true;
     try {
@@ -146,6 +157,7 @@ export const usePositionsStore = defineStore("positions", () => {
     winRatePercent,
     roiClosedPercent,
     topWinningPositions,
+    openPositionsSortedByExpiry,
     fetchPositions,
     fetchClosedPositions,
     triggerSettlement,

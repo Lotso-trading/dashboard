@@ -224,7 +224,7 @@ onMounted(async () => {
           <!-- List of up to 4 positions -->
           <div class="space-y-3">
             <div
-              v-for="position in positionsStore.positions.slice(0, 4)"
+              v-for="position in positionsStore.openPositionsSortedByExpiry.slice(0, 4)"
               :key="position.id"
               class="bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/[0.12] rounded-xl p-3.5 space-y-2.5 transition"
             >
