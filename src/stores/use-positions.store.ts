@@ -37,6 +37,18 @@ export const usePositionsStore = defineStore("positions", () => {
     return closedPositions.value.reduce((acc, pos) => acc + (pos.totalInvestedUsdc || 0), 0);
   });
 
+  const totalGainsClosedUsdc = computed(() => {
+    return closedPositions.value
+      .filter((p) => (p.realizedPnlUsdc ?? 0) > 0)
+      .reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
+  });
+
+  const totalLossesClosedUsdc = computed(() => {
+    return closedPositions.value
+      .filter((p) => (p.realizedPnlUsdc ?? 0) < 0)
+      .reduce((acc, p) => acc + Math.abs(p.realizedPnlUsdc ?? 0), 0);
+  });
+
   const winsCount = computed(() => {
     return closedPositions.value.filter((p) => p.closeReason === "RESOLVED_WIN").length;
   });
@@ -152,6 +164,8 @@ export const usePositionsStore = defineStore("positions", () => {
     totalRealizedPnlUsdc,
     totalSettledPayoutUsdc,
     totalInvestedClosedUsdc,
+    totalGainsClosedUsdc,
+    totalLossesClosedUsdc,
     winsCount,
     lossesCount,
     winRatePercent,

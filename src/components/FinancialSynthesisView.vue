@@ -56,6 +56,41 @@ const filteredClosedPositions = computed(() => {
   return positionsStore.closedPositions;
 });
 
+const filteredTotals = computed(() => {
+  const list = filteredClosedPositions.value;
+  const count = list.length;
+  const totalInvested = list.reduce((acc, p) => acc + (p.totalInvestedUsdc || 0), 0);
+  const totalPayout = list.reduce((acc, p) => acc + (p.settledPayoutUsdc || 0), 0);
+  const totalGains = list
+    .filter((p) => (p.realizedPnlUsdc ?? 0) > 0)
+    .reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
+  const totalLosses = list
+    .filter((p) => (p.realizedPnlUsdc ?? 0) < 0)
+    .reduce((acc, p) => acc + Math.abs(p.realizedPnlUsdc ?? 0), 0);
+  const netPnl = list.reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
+  const totalShares = list.reduce((acc, p) => acc + (p.totalShares || 0), 0);
+  const avgEntryPrice = totalShares > 0 ? totalInvested / totalShares : 0;
+  const winCount = list.filter((p) => p.closeReason === "RESOLVED_WIN").length;
+  const lossCount = list.filter((p) => p.closeReason === "RESOLVED_LOSS").length;
+  const winRate = count > 0 ? (winCount / count) * 100 : 0;
+  const roiPercent = totalInvested > 0 ? (netPnl / totalInvested) * 100 : 0;
+
+  return {
+    count,
+    totalInvested,
+    totalPayout,
+    totalGains,
+    totalLosses,
+    netPnl,
+    totalShares,
+    avgEntryPrice,
+    winCount,
+    lossCount,
+    winRate,
+    roiPercent,
+  };
+});
+
 async function refreshData(): Promise<void> {
   await positionsStore.triggerSettlement();
   await metricsStore.fetchMetrics();
@@ -320,96 +355,6 @@ function formatDate(timestamp?: number): string {
       </div>
     </div>
 
-    <!-- 3. Vitrine Bento : Les Plus Beaux Gains Encaissés (Hall of Fame) -->
-    <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2">
-          <span>⭐</span> Exemples Marquants de Gains Résolus (Top Victoires)
-        </h3>
-        <span class="text-xs text-slate-500 dark:text-slate-400">Classés par profit net décroissant</span>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- 🥇 Top 1 : AS Monaco FC -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-amber-500/40 dark:border-amber-500/30 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-          <div class="absolute -right-3 -top-3 text-4xl opacity-15">🥇</div>
-          <div class="flex items-center justify-between text-xs mb-2">
-            <span class="font-bold text-amber-600 dark:text-amber-400 font-mono text-[11px]">TOP 1 GAIN (+284%)</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
-              +70,19 $ NET
-            </span>
-          </div>
-          <h4 class="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-            Will AS Monaco FC win on 2026-11-08?
-          </h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Issue choisie : <strong>NO</strong> (94,92 parts @ 0,26 $)</p>
-          
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-mono">
-            <div>
-              <span class="text-slate-400 block text-[10px]">Mise</span>
-              <span class="text-slate-700 dark:text-slate-300 font-semibold">24,73 $</span>
-            </div>
-            <div class="text-right">
-              <span class="text-slate-400 block text-[10px]">Payout Encaissé</span>
-              <span class="text-emerald-600 dark:text-emerald-400 font-bold">94,92 $ USDC</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 🥈 Top 2 : Club Blooming vs Oriente -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-          <div class="absolute -right-3 -top-3 text-4xl opacity-15">🥈</div>
-          <div class="flex items-center justify-between text-xs mb-2">
-            <span class="font-bold text-slate-600 dark:text-slate-300 font-mono text-[11px]">TOP 2 GAIN (+100%)</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
-              +29,88 $ NET
-            </span>
-          </div>
-          <h4 class="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-            Club Blooming vs. Oriente (1st Half O/U 0.5)
-          </h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Issue choisie : <strong>Under</strong> (59,88 parts @ 0,501 $)</p>
-          
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-mono">
-            <div>
-              <span class="text-slate-400 block text-[10px]">Mise</span>
-              <span class="text-slate-700 dark:text-slate-300 font-semibold">30,00 $</span>
-            </div>
-            <div class="text-right">
-              <span class="text-slate-400 block text-[10px]">Payout Encaissé</span>
-              <span class="text-emerald-600 dark:text-emerald-400 font-bold">59,88 $ USDC</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 🥉 Top 3 : Aarhus GF vs AC Horsens -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-          <div class="absolute -right-3 -top-3 text-4xl opacity-15">🥉</div>
-          <div class="flex items-center justify-between text-xs mb-2">
-            <span class="font-bold text-slate-600 dark:text-slate-300 font-mono text-[11px]">TOP 3 GAIN (+100%)</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
-              +25,39 $ NET
-            </span>
-          </div>
-          <h4 class="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-            Aarhus GF vs. AC Horsens: O/U 2.5
-          </h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Issue choisie : <strong>Under</strong> (50,89 parts @ 0,501 $)</p>
-          
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-mono">
-            <div>
-              <span class="text-slate-400 block text-[10px]">Mise</span>
-              <span class="text-slate-700 dark:text-slate-300 font-semibold">25,50 $</span>
-            </div>
-            <div class="text-right">
-              <span class="text-slate-400 block text-[10px]">Payout Encaissé</span>
-              <span class="text-emerald-600 dark:text-emerald-400 font-bold">50,89 $ USDC</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 4. Liste Complète des 19 Marchés Résolus (Table Minimaliste) -->
     <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl overflow-hidden shadow-xs transition-colors">
       <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
@@ -460,6 +405,89 @@ function formatDate(timestamp?: number): string {
           >
             Défaites ({{ positionsStore.lossesCount }})
           </button>
+        </div>
+      </div>
+
+      <!-- Bandeau Synthèse des Marchés (Gains, Pertes, Payout Reçu, Bilan Net) -->
+      <div class="px-6 py-4 bg-slate-50/70 dark:bg-slate-950/40 border-b border-slate-200 dark:border-slate-800 transition-colors">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <!-- 1. Payout Reçu -->
+          <div class="bg-white dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 rounded-xl p-3 shadow-2xs">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+              <span class="font-medium flex items-center gap-1.5">
+                <span>💰</span> Payout Reçu
+              </span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold">
+                ENCAISSÉ
+              </span>
+            </div>
+            <div class="text-xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
+              ${{ filteredTotals.totalPayout.toFixed(2) }}
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">
+              Montant brut racheté par Polymarket
+            </p>
+          </div>
+
+          <!-- 2. Total Gains (Victoires) -->
+          <div class="bg-white dark:bg-slate-900/80 border border-emerald-500/20 dark:border-emerald-500/20 rounded-xl p-3 shadow-2xs">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+              <span class="font-medium flex items-center gap-1.5">
+                <span>🟢</span> Gains Cumulés
+              </span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                +{{ filteredTotals.winCount }} WINS
+              </span>
+            </div>
+            <div class="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
+              +${{ filteredTotals.totalGains.toFixed(2) }}
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">
+              Profits nets des paris victorieux
+            </p>
+          </div>
+
+          <!-- 3. Total Pertes (Défaites) -->
+          <div class="bg-white dark:bg-slate-900/80 border border-rose-500/20 dark:border-rose-500/20 rounded-xl p-3 shadow-2xs">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+              <span class="font-medium flex items-center gap-1.5">
+                <span>🔴</span> Pertes Cumulées
+              </span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 font-mono font-bold">
+                -{{ filteredTotals.lossCount }} LOSS
+              </span>
+            </div>
+            <div class="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 tracking-tight">
+              -${{ filteredTotals.totalLosses.toFixed(2) }}
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">
+              Mises perdues sur résolutions contraires
+            </p>
+          </div>
+
+          <!-- 4. Résultat Net (PnL) -->
+          <div class="bg-white dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 rounded-xl p-3 shadow-2xs">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+              <span class="font-medium flex items-center gap-1.5">
+                <span>⚖️</span> Bilan Net (PnL)
+              </span>
+              <span
+                class="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold"
+                :class="filteredTotals.netPnl >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
+              >
+                {{ filteredTotals.roiPercent >= 0 ? '+' : '' }}{{ filteredTotals.roiPercent.toFixed(1) }} %
+              </span>
+            </div>
+            <div
+              class="text-xl font-bold font-mono tracking-tight"
+              :class="filteredTotals.netPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+            >
+              {{ filteredTotals.netPnl >= 0 ? '+' : '' }}${{ filteredTotals.netPnl.toFixed(2) }}
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">
+              Sur ${{ filteredTotals.totalInvested.toFixed(2) }} misés ({{ filteredTotals.count }} marchés)
+            </p>
+          </div>
         </div>
       </div>
 
@@ -538,7 +566,59 @@ function formatDate(timestamp?: number): string {
                 </span>
               </td>
             </tr>
+
+            <tr v-if="filteredClosedPositions.length === 0">
+              <td colspan="8" class="py-12 text-center text-slate-400 text-xs font-sans">
+                <div class="text-2xl mb-2">🏁</div>
+                <p class="font-semibold text-slate-700 dark:text-slate-300">Aucune position clôturée pour ce filtre</p>
+                <p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1">
+                  Sélectionnez un autre filtre ou patientez que les oracles résolvent les marchés en cours.
+                </p>
+              </td>
+            </tr>
           </tbody>
+
+          <!-- Ligne de Totalisation Comptable (tfoot) -->
+          <tfoot
+            v-if="filteredClosedPositions.length > 0"
+            class="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-950/80 font-mono text-xs font-bold text-slate-900 dark:text-white"
+          >
+            <tr>
+              <td class="py-3.5 px-6 font-sans">
+                <div class="flex items-center gap-2">
+                  <span>📊 TOTAL SYNTHÈSE</span>
+                  <span class="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-mono">
+                    ({{ filteredTotals.count }} marché{{ filteredTotals.count > 1 ? 's' : '' }})
+                  </span>
+                </div>
+              </td>
+              <td class="py-3.5 px-4 font-sans text-slate-400">—</td>
+              <td class="py-3.5 px-4">{{ filteredTotals.totalShares.toFixed(2) }}</td>
+              <td class="py-3.5 px-4">${{ filteredTotals.totalInvested.toFixed(2) }}</td>
+              <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                ${{ filteredTotals.avgEntryPrice.toFixed(3) }}
+              </td>
+              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                ${{ filteredTotals.totalPayout.toFixed(2) }}
+              </td>
+              <td
+                class="py-3.5 px-4 font-bold"
+                :class="filteredTotals.netPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+              >
+                {{ filteredTotals.netPnl >= 0 ? '+' : '' }}${{ filteredTotals.netPnl.toFixed(2) }}
+              </td>
+              <td class="py-3.5 px-6 text-right font-sans">
+                <span
+                  class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+                  :class="filteredTotals.winRate >= 50
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'"
+                >
+                  {{ filteredTotals.winRate.toFixed(1) }}% Victoires
+                </span>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
