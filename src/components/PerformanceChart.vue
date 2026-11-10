@@ -12,7 +12,10 @@ const targetsStore = useTargetsStore();
 const tradesStore = useTradesStore();
 
 const initialCapital = computed(() => {
-  if (configStore.config?.maxAllocatedCapitalUsdc && configStore.config.maxAllocatedCapitalUsdc > 0) {
+  if (
+    configStore.config?.maxAllocatedCapitalUsdc &&
+    configStore.config.maxAllocatedCapitalUsdc > 0
+  ) {
     return configStore.config.maxAllocatedCapitalUsdc;
   }
   return metricsStore.metrics.initialCapitalUsdc ?? 100.0;

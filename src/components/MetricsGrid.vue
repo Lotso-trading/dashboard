@@ -13,7 +13,10 @@ const tradesStore = useTradesStore();
 const isResetting = ref(false);
 
 const initialCapitalUsdc = computed(() => {
-  if (configStore.config?.maxAllocatedCapitalUsdc && configStore.config.maxAllocatedCapitalUsdc > 0) {
+  if (
+    configStore.config?.maxAllocatedCapitalUsdc &&
+    configStore.config.maxAllocatedCapitalUsdc > 0
+  ) {
     return configStore.config.maxAllocatedCapitalUsdc;
   }
   return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
@@ -21,7 +24,9 @@ const initialCapitalUsdc = computed(() => {
 const availableCashUsdc = computed(() => {
   return Math.max(
     0,
-    initialCapitalUsdc.value - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
+    initialCapitalUsdc.value -
+      positionsStore.totalInvestedUsdc +
+      positionsStore.totalRealizedPnlUsdc
   );
 });
 

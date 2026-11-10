@@ -9,7 +9,10 @@ const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 
 const initialCapitalUsdc = computed(() => {
-  if (configStore.config?.maxAllocatedCapitalUsdc && configStore.config.maxAllocatedCapitalUsdc > 0) {
+  if (
+    configStore.config?.maxAllocatedCapitalUsdc &&
+    configStore.config.maxAllocatedCapitalUsdc > 0
+  ) {
     return configStore.config.maxAllocatedCapitalUsdc;
   }
   return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
@@ -22,7 +25,9 @@ const filterStatus = ref<"ALL" | "WIN" | "LOSS">("ALL");
 const availableCashUsdc = computed(() => {
   return Math.max(
     0,
-    initialCapitalUsdc.value - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
+    initialCapitalUsdc.value -
+      positionsStore.totalInvestedUsdc +
+      positionsStore.totalRealizedPnlUsdc
   );
 });
 
@@ -32,7 +37,9 @@ const totalPortfolioValueUsdc = computed(() => {
 
 const overallRoiPercent = computed(() => {
   if (initialCapitalUsdc.value <= 0) return 0;
-  return ((totalPortfolioValueUsdc.value - initialCapitalUsdc.value) / initialCapitalUsdc.value) * 100;
+  return (
+    ((totalPortfolioValueUsdc.value - initialCapitalUsdc.value) / initialCapitalUsdc.value) * 100
+  );
 });
 
 const maxPotentialNetProfit = computed(() => {
