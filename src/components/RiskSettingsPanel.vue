@@ -2,9 +2,28 @@
 import { computed, ref } from "vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
+import WalletAdjustmentModal from "./WalletAdjustmentModal.vue";
 
 const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
+
+const isWalletModalOpen = ref(false);
+const walletModalAction = ref<"DEPOSIT" | "WITHDRAW">("DEPOSIT");
+
+function openWalletModal(action: "DEPOSIT" | "WITHDRAW"): void {
+  walletModalAction.value = action;
+  isWalletModalOpen.value = true;
+}
+
+function setStrategyPreset(preset: "MAX_CASH_IN" | "BALANCED" | "COMPOUND"): void {
+  if (preset === "MAX_CASH_IN") {
+    profitReinvestmentPercent.value = 0;
+  } else if (preset === "BALANCED") {
+    profitReinvestmentPercent.value = 50;
+  } else if (preset === "COMPOUND") {
+    profitReinvestmentPercent.value = 100;
+  }
+}
 
 const balancePercent = ref(Math.round((configStore.config?.balancePercentPerTrade ?? 0.03) * 100));
 const maxSlippage = ref(configStore.config?.maxSlippagePercent ?? 2.0);
@@ -93,11 +112,76 @@ async function handleSave(): Promise<void> {
     <form @submit.prevent="handleSave" class="space-y-6 max-w-2xl">
       <!-- Section Budget Alloué & Réinvestissement des Bénéfices -->
       <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 space-y-4">
+        <!-- 3 Presets Stratégiques -->
+        <div class="space-y-1.5 pb-2 border-b border-slate-200 dark:border-slate-800/80">
+          <label class="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <span>🎯</span> Stratégie d'Attribution des Bénéfices Réalisés
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <button
+              type="button"
+              @click="setStrategyPreset('MAX_CASH_IN')"
+              :class="[
+                'p-2.5 rounded-xl border text-left transition cursor-pointer',
+                profitReinvestmentPercent === 0
+                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-400 font-bold ring-1 ring-emerald-500/30'
+                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-500/40'
+              ]"
+            >
+              <div class="flex items-center justify-between text-xs font-bold">
+                <span>🎯 Encaisser un Max</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400">0% réinvesti</span>
+              </div>
+              <p class="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-1">
+                100% des gains sanctuarisés dans votre portefeuille, le bot ne peut jamais les risquer.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              @click="setStrategyPreset('BALANCED')"
+              :class="[
+                'p-2.5 rounded-xl border text-left transition cursor-pointer',
+                profitReinvestmentPercent === 50
+                  ? 'bg-blue-500/10 border-blue-500 text-blue-700 dark:text-blue-400 font-bold ring-1 ring-blue-500/30'
+                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-500/40'
+              ]"
+            >
+              <div class="flex items-center justify-between text-xs font-bold">
+                <span>⚖️ Équilibré</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-700 dark:text-blue-400">50% / 50%</span>
+              </div>
+              <p class="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-1">
+                Moitié sécurisée au portefeuille, moitié ajoutée au budget de trading du bot.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              @click="setStrategyPreset('COMPOUND')"
+              :class="[
+                'p-2.5 rounded-xl border text-left transition cursor-pointer',
+                profitReinvestmentPercent === 100
+                  ? 'bg-purple-500/10 border-purple-500 text-purple-700 dark:text-purple-400 font-bold ring-1 ring-purple-500/30'
+                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-500/40'
+              ]"
+            >
+              <div class="flex items-center justify-between text-xs font-bold">
+                <span>🚀 Intérêts Composés</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-700 dark:text-purple-400">100% réinvesti</span>
+              </div>
+              <p class="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-1">
+                Tous les gains sont réinjectés pour maximiser la croissance du capital en jeu.
+              </p>
+            </button>
+          </div>
+        </div>
+
         <!-- Plafond de Capital Alloué -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>💼</span> Capital Alloué à Lotso (USDC)
+              <span>💼</span> Budget Fixe Alloué au Bot (USDC)
             </label>
             <span
               class="font-mono text-xs font-bold px-2 py-0.5 rounded border"
@@ -107,7 +191,7 @@ async function handleSave(): Promise<void> {
             </span>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">
-            Somme maximale du portefeuille utilisable par le bot (ex: 100 $ sur 500 $ disponibles). Laissez 0 pour utiliser tout le solde.
+            Somme maximale du portefeuille que le bot est autorisé à engager (ex: 100 $ sur 500 $ disponibles). Le reste est 100% protégé. Laissez 0 pour autoriser l'intégralité du solde.
           </p>
           <div class="relative max-w-xs">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-mono">$</span>
@@ -384,6 +468,40 @@ async function handleSave(): Promise<void> {
         </div>
       </div>
 
+      <!-- Gestion du Solde Virtuel (Dry-Run) -->
+      <div v-if="dryRun" class="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div class="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>🏦</span> Solde Virtuel du Portefeuille (Dry-Run)
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Ajustez ce solde simulé à tout moment pour tester la réaction du bot avec plus ou moins de liquidités.
+            </p>
+          </div>
+          <span class="font-mono text-sm font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 shrink-0">
+            ${{ (configStore.config?.simulatedBalanceUsdc ?? 1000).toFixed(2) }} USDC
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2.5 pt-1">
+          <button
+            type="button"
+            @click="openWalletModal('DEPOSIT')"
+            class="px-3 py-1.5 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>➕</span> Ajouter des fonds (Dépôt)
+          </button>
+          <button
+            type="button"
+            @click="openWalletModal('WITHDRAW')"
+            class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>➖</span> Retirer des fonds (Retrait)
+          </button>
+        </div>
+      </div>
+
       <!-- Actions -->
       <div class="pt-2 flex items-center gap-3">
         <button
@@ -399,5 +517,12 @@ async function handleSave(): Promise<void> {
         </span>
       </div>
     </form>
+
+    <!-- Modale interactive d'Ajout / Retrait de Fonds (Dry-Run) -->
+    <WalletAdjustmentModal
+      v-if="isWalletModalOpen"
+      :initial-action="walletModalAction"
+      @close="isWalletModalOpen = false"
+    />
   </div>
 </template>

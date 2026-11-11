@@ -15,6 +15,7 @@ export const useConfigStore = defineStore("config", () => {
     maxPrice: 0.9,
     copySellOrders: true,
     dryRun: true,
+    simulatedBalanceUsdc: 1000.0,
     maxAllocatedCapitalUsdc: 0,
     profitReinvestmentPercent: 50.0,
     isBotRunning: true,
@@ -39,6 +40,26 @@ export const useConfigStore = defineStore("config", () => {
     config.value = updated;
   }
 
+  async function depositFunds(
+    amount: number
+  ): Promise<{ success: boolean; simulatedBalanceUsdc: number; availableCashUsdc: number }> {
+    const res = await api.depositVirtualWallet(amount);
+    if (config.value) {
+      config.value.simulatedBalanceUsdc = res.simulatedBalanceUsdc;
+    }
+    return res;
+  }
+
+  async function withdrawFunds(
+    amount: number
+  ): Promise<{ success: boolean; simulatedBalanceUsdc: number; availableCashUsdc: number }> {
+    const res = await api.withdrawVirtualWallet(amount);
+    if (config.value) {
+      config.value.simulatedBalanceUsdc = res.simulatedBalanceUsdc;
+    }
+    return res;
+  }
+
   function handleConfigUpdated(updated: RiskConfig): void {
     config.value = updated;
   }
@@ -48,6 +69,8 @@ export const useConfigStore = defineStore("config", () => {
     isLoading,
     fetchConfig,
     updateConfig,
+    depositFunds,
+    withdrawFunds,
     handleConfigUpdated,
   };
 });

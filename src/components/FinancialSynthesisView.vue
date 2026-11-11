@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
+import WalletAdjustmentModal from "./WalletAdjustmentModal.vue";
 
 export interface ClosedPositionsTotals {
   count: number;
@@ -24,6 +25,35 @@ const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 
+const isWalletModalOpen = ref(false);
+const walletModalAction = ref<"DEPOSIT" | "WITHDRAW">("DEPOSIT");
+const isMaxCashInApplying = ref(false);
+const maxCashInFeedback = ref("");
+
+function openWalletModal(action: "DEPOSIT" | "WITHDRAW"): void {
+  walletModalAction.value = action;
+  isWalletModalOpen.value = true;
+}
+
+async function handleMaxCashIn(): Promise<void> {
+  isMaxCashInApplying.value = true;
+  maxCashInFeedback.value = "";
+  try {
+    await configStore.updateConfig({
+      profitReinvestmentPercent: 0.0,
+    });
+    await positionsStore.triggerSettlement();
+    await metricsStore.fetchMetrics();
+    maxCashInFeedback.value =
+      "🎯 Mode Encaissement Max activé : 100% des bénéfices sanctuarisés dans votre portefeuille !";
+    setTimeout(() => {
+      maxCashInFeedback.value = "";
+    }, 4000);
+  } finally {
+    isMaxCashInApplying.value = false;
+  }
+}
+
 const initialCapitalUsdc = computed<number>((): number => {
   if (
     configStore.config?.maxAllocatedCapitalUsdc &&
@@ -31,7 +61,9 @@ const initialCapitalUsdc = computed<number>((): number => {
   ) {
     return configStore.config.maxAllocatedCapitalUsdc;
   }
-  return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+  return Number(
+    configStore.config?.simulatedBalanceUsdc ?? metricsStore.metrics.initialCapitalUsdc ?? 1000.0
+  );
 });
 const lastSyncTime = ref<string>(
   new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
@@ -39,6 +71,9 @@ const lastSyncTime = ref<string>(
 const filterStatus = ref<"ALL" | "WIN" | "LOSS">("ALL");
 
 const availableCashUsdc = computed<number>((): number => {
+  if (typeof metricsStore.metrics.availableCashUsdc === "number") {
+    return metricsStore.metrics.availableCashUsdc;
+  }
   return Math.max(
     0,
     initialCapitalUsdc.value -
@@ -171,7 +206,18 @@ function formatDate(timestamp?: number): string {
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button
+          type="button"
+          @click="handleMaxCashIn"
+          :disabled="isMaxCashInApplying"
+          class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          title="Verrouille 100% des bénéfices futurs et règle les marchés en attente pour encaisser un maximum de cash"
+        >
+          <span :class="{ 'animate-spin': isMaxCashInApplying }">🎯</span>
+          {{ isMaxCashInApplying ? 'Sécurisation...' : 'Encaisser un max (100% sécurisé)' }}
+        </button>
+
         <button
           type="button"
           @click="refreshData"
@@ -184,11 +230,19 @@ function formatDate(timestamp?: number): string {
       </div>
     </div>
 
-    <!-- 1. Le Grand Livre Financier (Base 1 000 $ initial) -->
+    <!-- Feedback Encaisser un Max -->
+    <div
+      v-if="maxCashInFeedback"
+      class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-fadeIn"
+    >
+      <span>🛡️</span> {{ maxCashInFeedback }}
+    </div>
+
+    <!-- 1. Le Grand Livre Financier -->
     <div class="space-y-3">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2">
-          <span>🏛️</span> Grand Livre Financier Lotso (Base 1 000,00 $ Initial)
+          <span>🏛️</span> Grand Livre Financier Lotso (Base ${{ initialCapitalUsdc.toFixed(2) }} Initial)
         </h3>
         <span class="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400">
           ROI Global : {{ overallRoiPercent >= 0 ? '+' : '' }}{{ overallRoiPercent.toFixed(1) }} %
@@ -197,24 +251,44 @@ function formatDate(timestamp?: number): string {
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- 1. Cash Disponible Immédiat -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs hover:border-emerald-500/40 transition-all">
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Cash Disponible Immédiat</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-              LIBRE
-            </span>
+        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+              <span class="font-medium">Cash Disponible Immédiat</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                LIBRE
+              </span>
+            </div>
+            <div class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
+              ${{ availableCashUsdc.toFixed(2) }}
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Solde disponible pour répliquer de nouveaux signaux de baleines.
+            </p>
+            <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div
+                class="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                :style="{ width: `${Math.min(100, (availableCashUsdc / totalPortfolioValueUsdc) * 100)}%` }"
+              ></div>
+            </div>
           </div>
-          <div class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
-            ${{ availableCashUsdc.toFixed(2) }}
-          </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Solde disponible pour répliquer de nouveaux signaux de baleines.
-          </p>
-          <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div
-              class="bg-emerald-500 h-full rounded-full transition-all duration-500"
-              :style="{ width: `${Math.min(100, (availableCashUsdc / totalPortfolioValueUsdc) * 100)}%` }"
-            ></div>
+
+          <!-- Boutons Ajouter / Retirer des fonds -->
+          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
+            <button
+              type="button"
+              @click="openWalletModal('DEPOSIT')"
+              class="flex-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span>➕</span> Ajouter des fonds
+            </button>
+            <button
+              type="button"
+              @click="openWalletModal('WITHDRAW')"
+              class="flex-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span>➖</span> Retirer
+            </button>
           </div>
         </div>
 
@@ -284,16 +358,19 @@ function formatDate(timestamp?: number): string {
         <!-- 5. Bénéfice Net Réalisé Encaissé -->
         <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs hover:border-emerald-500/40 transition-all">
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Bénéfice Net Réalisé (Encaissé)</span>
+            <span class="font-medium">Bénéfices Encaissés (Sanctuarisés)</span>
             <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-              SÉCURISÉ
+              PORTFOLIO
             </span>
           </div>
           <div class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
             +${{ positionsStore.totalRealizedPnlUsdc.toFixed(2) }}
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Bénéfice net définitivement racheté par Polymarket suite aux résolutions.
+            Gains nets Polymarket définitivement sécurisés dans le portefeuille.
+            <span class="block mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+              🛡️ {{ 100 - (configStore.config?.profitReinvestmentPercent ?? 50) }}% sanctuarisé • Intouchable par le bot
+            </span>
           </p>
           <div class="mt-3 text-[11px] font-mono text-slate-500 dark:text-slate-400">
             Total Payouts rachetés : <strong class="text-slate-900 dark:text-white">${{ positionsStore.totalSettledPayoutUsdc.toFixed(2) }}</strong>
@@ -661,5 +738,12 @@ function formatDate(timestamp?: number): string {
         </table>
       </div>
     </div>
+
+    <!-- Modale interactive d'Ajout / Retrait de Fonds (Dry-Run) -->
+    <WalletAdjustmentModal
+      v-if="isWalletModalOpen"
+      :initial-action="walletModalAction"
+      @close="isWalletModalOpen = false"
+    />
   </div>
 </template>

@@ -132,6 +132,33 @@ class HttpClient {
     });
   }
 
+  // --- Gestion du Portefeuille Virtuel (Dry Run) ---
+  async depositVirtualWallet(
+    amountUsdc: number
+  ): Promise<{ success: boolean; simulatedBalanceUsdc: number; availableCashUsdc: number }> {
+    return await this.request<{
+      success: boolean;
+      simulatedBalanceUsdc: number;
+      availableCashUsdc: number;
+    }>("/config/wallet/deposit", {
+      method: "POST",
+      body: JSON.stringify({ amountUsdc }),
+    });
+  }
+
+  async withdrawVirtualWallet(
+    amountUsdc: number
+  ): Promise<{ success: boolean; simulatedBalanceUsdc: number; availableCashUsdc: number }> {
+    return await this.request<{
+      success: boolean;
+      simulatedBalanceUsdc: number;
+      availableCashUsdc: number;
+    }>("/config/wallet/withdraw", {
+      method: "POST",
+      body: JSON.stringify({ amountUsdc }),
+    });
+  }
+
   // --- Métriques PnL Globales ---
   async getMetrics(): Promise<GlobalMetrics> {
     return await this.request<GlobalMetrics>("/metrics");

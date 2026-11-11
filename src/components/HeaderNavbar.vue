@@ -16,9 +16,14 @@ const initialCapitalUsdc = computed(() => {
   ) {
     return configStore.config.maxAllocatedCapitalUsdc;
   }
-  return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+  return Number(
+    configStore.config?.simulatedBalanceUsdc ?? metricsStore.metrics.initialCapitalUsdc ?? 1000.0
+  );
 });
 const availableCashUsdc = computed(() => {
+  if (typeof metricsStore.metrics.availableCashUsdc === "number") {
+    return metricsStore.metrics.availableCashUsdc;
+  }
   return Math.max(
     0,
     initialCapitalUsdc.value -
