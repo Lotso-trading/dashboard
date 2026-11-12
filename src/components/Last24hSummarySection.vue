@@ -3,14 +3,12 @@ import type { OpenPosition } from "@polymarket-copy/shared";
 import { computed } from "vue";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import {
-  calculatePositionsSummary,
   type ClosedPositionsTotals,
+  calculatePositionsSummary,
   filterPositionsLast24h,
 } from "../utils/positions-summary.ts";
 
-const emit = defineEmits<{
-  (e: "navigate", tab: "CLOSED_JOURNAL"): void;
-}>();
+const emit = defineEmits<(e: "navigate", tab: "CLOSED_JOURNAL") => void>();
 
 const positionsStore = usePositionsStore();
 

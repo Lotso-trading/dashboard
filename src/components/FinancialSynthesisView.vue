@@ -6,9 +6,7 @@ import { usePositionsStore } from "../stores/use-positions.store.ts";
 import Last24hSummarySection from "./Last24hSummarySection.vue";
 import WalletAdjustmentModal from "./WalletAdjustmentModal.vue";
 
-const emit = defineEmits<{
-  (e: "navigate", tab: "CLOSED_JOURNAL" | "POSITIONS"): void;
-}>();
+const emit = defineEmits<(e: "navigate", tab: "CLOSED_JOURNAL" | "POSITIONS") => void>();
 
 const configStore = useConfigStore();
 const metricsStore = useMetricsStore();

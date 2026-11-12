@@ -2,9 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useClosedJournalStore } from "../stores/use-closed-journal.store.ts";
 
-const emit = defineEmits<{
-  (e: "navigate", tab: "SYNTHESIS"): void;
-}>();
+const emit = defineEmits<(e: "navigate", tab: "SYNTHESIS") => void>();
 
 const journalStore = useClosedJournalStore();
 const sentinelEl = ref<HTMLElement | null>(null);
@@ -33,7 +31,12 @@ onMounted(async () => {
     observer = new IntersectionObserver(
       (entries) => {
         const first = entries[0];
-        if (first?.isIntersecting && journalStore.hasMore && !journalStore.isLoadingMore && !journalStore.isLoading) {
+        if (
+          first?.isIntersecting &&
+          journalStore.hasMore &&
+          !journalStore.isLoadingMore &&
+          !journalStore.isLoading
+        ) {
           journalStore.loadMore();
         }
       },
