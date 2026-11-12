@@ -290,14 +290,43 @@ onBeforeUnmount(() => {
               </td>
 
               <td class="py-3.5 px-6 text-right font-sans">
-                <span
-                  class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                  :class="pos.closeReason === 'RESOLVED_WIN'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'"
-                >
-                  {{ pos.closeReason === 'RESOLVED_WIN' ? '🏆 VICTOIRE' : '❌ DÉFAITE' }}
-                </span>
+                <div class="flex flex-col items-end gap-1">
+                  <span
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+                    :class="pos.closeReason === 'RESOLVED_WIN'
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'"
+                  >
+                    {{ pos.closeReason === 'RESOLVED_WIN' ? '🏆 VICTOIRE' : '❌ DÉFAITE' }}
+                  </span>
+
+                  <!-- Statut de réclamation Auto-Redeem pour les victoires -->
+                  <template v-if="pos.closeReason === 'RESOLVED_WIN'">
+                    <a
+                      v-if="pos.settleTxHash && pos.settleTxHash.startsWith('0x')"
+                      :href="'https://polygonscan.com/tx/' + pos.settleTxHash"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 font-mono"
+                      title="Gain réclamé sur Polygon - Voir la transaction"
+                    >
+                      <span>⚡ Réclamé on-chain</span> ↗
+                    </a>
+                    <span
+                      v-else-if="pos.settleTxHash"
+                      class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-mono"
+                      title="Gain crédité (Simulation)"
+                    >
+                      ⚡ Réclamé (Simu)
+                    </span>
+                    <span
+                      v-else
+                      class="text-[10px] text-amber-500 font-sans"
+                    >
+                      ⏳ Réclamation en cours...
+                    </span>
+                  </template>
+                </div>
               </td>
             </tr>
 
