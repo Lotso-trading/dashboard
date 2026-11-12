@@ -1,71 +1,10 @@
 /// <reference lib="deno.ns" />
 import { assertEquals } from "jsr:@std/assert";
 import type { OpenPosition } from "@polymarket-copy/shared";
-
-interface ClosedPositionsTotals {
-  count: number;
-  totalInvested: number;
-  totalPayout: number;
-  totalGains: number;
-  totalLosses: number;
-  netPnl: number;
-  totalShares: number;
-  avgEntryPrice: number;
-  winCount: number;
-  lossCount: number;
-  winRate: number;
-  roiPercent: number;
-}
-
-function calculatePositionsSummary(positions: OpenPosition[]): ClosedPositionsTotals {
-  const count: number = positions.length;
-  const totalInvested: number = positions.reduce(
-    (acc: number, p: OpenPosition): number => acc + (p.totalInvestedUsdc || 0),
-    0
-  );
-  const totalPayout: number = positions.reduce(
-    (acc: number, p: OpenPosition): number => acc + (p.settledPayoutUsdc || 0),
-    0
-  );
-  const totalGains: number = positions
-    .filter((p: OpenPosition): boolean => (p.realizedPnlUsdc ?? 0) > 0)
-    .reduce((acc: number, p: OpenPosition): number => acc + (p.realizedPnlUsdc ?? 0), 0);
-  const totalLosses: number = positions
-    .filter((p: OpenPosition): boolean => (p.realizedPnlUsdc ?? 0) < 0)
-    .reduce((acc: number, p: OpenPosition): number => acc + Math.abs(p.realizedPnlUsdc ?? 0), 0);
-  const netPnl: number = positions.reduce(
-    (acc: number, p: OpenPosition): number => acc + (p.realizedPnlUsdc ?? 0),
-    0
-  );
-  const totalShares: number = positions.reduce(
-    (acc: number, p: OpenPosition): number => acc + (p.totalShares || 0),
-    0
-  );
-  const avgEntryPrice: number = totalShares > 0 ? totalInvested / totalShares : 0;
-  const winCount: number = positions.filter(
-    (p: OpenPosition): boolean => p.closeReason === "RESOLVED_WIN"
-  ).length;
-  const lossCount: number = positions.filter(
-    (p: OpenPosition): boolean => p.closeReason === "RESOLVED_LOSS"
-  ).length;
-  const winRate: number = count > 0 ? (winCount / count) * 100 : 0;
-  const roiPercent: number = totalInvested > 0 ? (netPnl / totalInvested) * 100 : 0;
-
-  return {
-    count,
-    totalInvested,
-    totalPayout,
-    totalGains,
-    totalLosses,
-    netPnl,
-    totalShares,
-    avgEntryPrice,
-    winCount,
-    lossCount,
-    winRate,
-    roiPercent,
-  };
-}
+import {
+  calculatePositionsSummary,
+  filterPositionsLast24h,
+} from "../src/utils/positions-summary.ts";
 
 const mockWinPosition1: OpenPosition = {
   id: "pos_win_1",
@@ -197,4 +136,28 @@ Deno.test("calculatePositionsSummary - filtre défaites uniquement", () => {
   assertEquals(summary.totalLosses, 30);
   assertEquals(summary.netPnl, -30);
   assertEquals(summary.winRate, 0);
+});
+
+Deno.test("filterPositionsLast24h - isole les positions des dernières 24h et ignore les antérieures", () => {
+  const now = 1731000000000;
+  const recentPos: OpenPosition = {
+    ...mockWinPosition1,
+    id: "recent-1",
+    closedAt: now - 3_600_000, // Il y a 1 heure
+  };
+  const borderPos: OpenPosition = {
+    ...mockWinPosition2,
+    id: "border-1",
+    closedAt: now - 24 * 3_600_000, // Pile 24h
+  };
+  const oldPos: OpenPosition = {
+    ...mockLossPosition1,
+    id: "old-1",
+    closedAt: now - 25 * 3_600_000, // Il y a 25 heures
+  };
+
+  const filtered = filterPositionsLast24h([recentPos, borderPos, oldPos], now);
+  assertEquals(filtered.length, 2);
+  assertEquals(filtered[0]?.id, "recent-1");
+  assertEquals(filtered[1]?.id, "border-1");
 });

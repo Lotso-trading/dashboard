@@ -5,7 +5,7 @@ import type {
   RiskConfig,
   TargetTrader,
 } from "@polymarket-copy/shared";
-import { onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { wsClient } from "../api/websocket-client.ts";
 import FinancialSynthesisView from "../components/FinancialSynthesisView.vue";
 import LiveActivityFeed from "../components/LiveActivityFeed.vue";
@@ -19,10 +19,64 @@ import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
+import ClosedPositionsJournalView from "./ClosedPositionsJournalView.vue";
 
-const currentTab = ref<"SYNTHESIS" | "OVERVIEW" | "TARGETS" | "POSITIONS" | "FEED" | "RISK">(
-  "SYNTHESIS"
-);
+export type DashboardTab =
+  | "SYNTHESIS"
+  | "OVERVIEW"
+  | "TARGETS"
+  | "POSITIONS"
+  | "CLOSED_JOURNAL"
+  | "FEED"
+  | "RISK";
+
+const currentTab = ref<DashboardTab>("SYNTHESIS");
+
+function setTab(tab: DashboardTab): void {
+  currentTab.value = tab;
+  updateHash(tab);
+}
+
+function updateHash(tab: DashboardTab): void {
+  const map: Record<DashboardTab, string> = {
+    SYNTHESIS: "synthesis",
+    OVERVIEW: "overview",
+    TARGETS: "targets",
+    POSITIONS: "positions",
+    CLOSED_JOURNAL: "closed-journal",
+    FEED: "feed",
+    RISK: "risk",
+  };
+  const targetHash = `#${map[tab] || "synthesis"}`;
+  if (typeof window !== "undefined" && window.location.hash !== targetHash) {
+    window.location.hash = targetHash;
+  }
+}
+
+function syncTabFromHash(): void {
+  if (typeof window === "undefined") return;
+  const hash = window.location.hash.toLowerCase();
+  if (
+    hash === "#closed-journal" ||
+    hash === "#closed" ||
+    hash === "#history" ||
+    hash === "#journal"
+  ) {
+    currentTab.value = "CLOSED_JOURNAL";
+  } else if (hash === "#overview") {
+    currentTab.value = "OVERVIEW";
+  } else if (hash === "#targets") {
+    currentTab.value = "TARGETS";
+  } else if (hash === "#positions") {
+    currentTab.value = "POSITIONS";
+  } else if (hash === "#feed") {
+    currentTab.value = "FEED";
+  } else if (hash === "#risk") {
+    currentTab.value = "RISK";
+  } else if (hash === "#synthesis") {
+    currentTab.value = "SYNTHESIS";
+  }
+}
 
 const metricsStore = useMetricsStore();
 const targetsStore = useTargetsStore();
@@ -31,6 +85,9 @@ const tradesStore = useTradesStore();
 const configStore = useConfigStore();
 
 onMounted(async () => {
+  syncTabFromHash();
+  window.addEventListener("hashchange", syncTabFromHash);
+
   // Chargement initial des stores
   await Promise.all([
     metricsStore.fetchMetrics(),
@@ -101,6 +158,12 @@ onMounted(async () => {
     positionsStore.fetchPositions();
   });
 });
+
+onBeforeUnmount(() => {
+  if (typeof window !== "undefined") {
+    window.removeEventListener("hashchange", syncTabFromHash);
+  }
+});
 </script>
 
 <template>
@@ -110,7 +173,7 @@ onMounted(async () => {
       <!-- 💎 Synthèse Financière -->
       <button
         type="button"
-        @click="currentTab = 'SYNTHESIS'"
+        @click="setTab('SYNTHESIS')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'SYNTHESIS'
@@ -126,7 +189,7 @@ onMounted(async () => {
 
       <button
         type="button"
-        @click="currentTab = 'OVERVIEW'"
+        @click="setTab('OVERVIEW')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'OVERVIEW'
@@ -139,7 +202,7 @@ onMounted(async () => {
 
       <button
         type="button"
-        @click="currentTab = 'TARGETS'"
+        @click="setTab('TARGETS')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'TARGETS'
@@ -155,7 +218,7 @@ onMounted(async () => {
 
       <button
         type="button"
-        @click="currentTab = 'POSITIONS'"
+        @click="setTab('POSITIONS')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'POSITIONS'
@@ -169,9 +232,26 @@ onMounted(async () => {
         </span>
       </button>
 
+      <!-- 📜 Journal Clôturé (Défilement Infini) -->
       <button
         type="button"
-        @click="currentTab = 'FEED'"
+        @click="setTab('CLOSED_JOURNAL')"
+        :class="[
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
+          currentTab === 'CLOSED_JOURNAL'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
+        ]"
+      >
+        <span>📜</span> Journal Clôturé
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono font-bold">
+          {{ positionsStore.closedPositions.length }}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        @click="setTab('FEED')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'FEED'
@@ -184,7 +264,7 @@ onMounted(async () => {
 
       <button
         type="button"
-        @click="currentTab = 'RISK'"
+        @click="setTab('RISK')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'RISK'
@@ -198,7 +278,12 @@ onMounted(async () => {
 
     <!-- Contenu Dynamique par Onglet -->
     <div v-if="currentTab === 'SYNTHESIS'">
-      <FinancialSynthesisView />
+      <FinancialSynthesisView @navigate="(tab) => setTab(tab)" />
+    </div>
+
+    <!-- 📜 JOURNAL EXHAUSTIF DES POSITIONS CLÔTURÉES -->
+    <div v-else-if="currentTab === 'CLOSED_JOURNAL'">
+      <ClosedPositionsJournalView @navigate="(tab) => setTab(tab)" />
     </div>
 
     <!-- 📊 VUE D'ENSEMBLE & PNL (Executive Cockpit) -->
@@ -231,7 +316,7 @@ onMounted(async () => {
 
             <button
               type="button"
-              @click="currentTab = 'POSITIONS'"
+              @click="setTab('POSITIONS')"
               class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 group cursor-pointer"
             >
               <span>Voir tout</span>
@@ -296,7 +381,7 @@ onMounted(async () => {
             </span>
             <button
               type="button"
-              @click="currentTab = 'POSITIONS'"
+              @click="setTab('POSITIONS')"
               class="px-3 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-semibold transition cursor-pointer"
             >
               Gérer les {{ positionsStore.positions.length }} positions →

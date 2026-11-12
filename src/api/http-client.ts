@@ -1,6 +1,7 @@
 import type {
   AddTargetInput,
   ApiResponse,
+  ClosedPositionsQuery,
   ExecutedTrade,
   OpenPosition,
   RiskConfig,
@@ -8,6 +9,7 @@ import type {
   UpdateRiskConfigInput,
   UpdateTargetInput,
 } from "@polymarket-copy/shared";
+import type { ClosedPositionsTotals } from "../utils/positions-summary.ts";
 
 export interface GlobalMetrics {
   totalTradedVolumeUsdc: number;
@@ -91,6 +93,31 @@ class HttpClient {
 
   async getClosedPositions(): Promise<OpenPosition[]> {
     return await this.request<OpenPosition[]>("/positions/closed");
+  }
+
+  async getClosedPositionsPaginated(params: ClosedPositionsQuery = {}): Promise<{
+    items: OpenPosition[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    totals: ClosedPositionsTotals;
+  }> {
+    const query = new URLSearchParams();
+    if (params.page) query.set("page", String(params.page));
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.status && params.status !== "ALL") query.set("status", params.status);
+    if (params.since) query.set("since", String(params.since));
+
+    const queryString = query.toString() ? `?${query.toString()}` : "";
+    return await this.request<{
+      items: OpenPosition[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      totals: ClosedPositionsTotals;
+    }>(`/positions/closed${queryString}`);
   }
 
   async settlePositions(): Promise<{ settledCount: number; message: string }> {
