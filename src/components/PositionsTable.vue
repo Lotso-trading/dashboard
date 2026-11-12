@@ -48,10 +48,10 @@ function getMarketUrl(position: {
 }
 
 function formatLocalDate(isoDate?: string): string {
-  if (!isoDate) return "Date indéterminée";
+  if (!isoDate) return "Synchronisation date...";
   try {
     const date = new Date(isoDate);
-    if (Number.isNaN(date.getTime())) return "Date indéterminée";
+    if (Number.isNaN(date.getTime())) return "Synchronisation date...";
 
     return date.toLocaleDateString("fr-FR", {
       day: "numeric",
@@ -61,7 +61,7 @@ function formatLocalDate(isoDate?: string): string {
       minute: "2-digit",
     });
   } catch {
-    return "Date indéterminée";
+    return "Synchronisation date...";
   }
 }
 
@@ -85,7 +85,7 @@ function getRelativeTime(isoDate?: string): string {
     const diffMs = targetTime - now;
 
     if (diffMs <= 0) {
-      return "⌛ Clôture / Résolution";
+      return "⌛ En attente de résultat oracle";
     }
 
     const diffMinutes = Math.floor(diffMs / 60000);
