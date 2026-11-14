@@ -5,6 +5,12 @@ import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
+import {
+  filterPerformancePoints,
+  formatTooltipDate,
+  formatXTickLabel,
+  type TimeFilterPeriod,
+} from "../utils/performance-filter.ts";
 
 const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
@@ -28,41 +34,33 @@ const showWhaleVolume = ref(true);
 const showTradeMarkers = ref(true);
 const selectedWhaleAddress = ref<string>("ALL");
 
+// Filtre temporel (1H, 24H, 3J, 1M, ALL)
+const selectedPeriod = ref<TimeFilterPeriod>("ALL");
+const timeFilters: { id: TimeFilterPeriod; label: string }[] = [
+  { id: "1H", label: "1H" },
+  { id: "24H", label: "24H" },
+  { id: "3J", label: "3J" },
+  { id: "1M", label: "1M" },
+  { id: "ALL", label: "ALL" },
+];
+
 // État du survol interactif
 const hoveredPoint = ref<PerformancePoint | null>(null);
 const hoverX = ref<number>(0);
 const hoverY = ref<number>(0);
 
-// Points filtrés
-const filteredPoints = computed(() => {
-  const points = metricsStore.performanceHistory;
-  if (points.length === 0) {
-    // Si aucun point dans l'historique, générer un point de référence
-    return [
-      {
-        timestamp: Date.now() - 3600000,
-        myCumulativePnlUsdc: 0,
-        portfolioValueUsdc: initialCapital.value,
-        whaleCumulativeUsdc: 0,
-      },
-      {
-        timestamp: Date.now(),
-        myCumulativePnlUsdc: 0,
-        portfolioValueUsdc: initialCapital.value,
-        whaleCumulativeUsdc: 0,
-      },
-    ];
-  }
-
-  if (selectedWhaleAddress.value === "ALL") {
-    return points;
-  }
-
-  return points.filter(
-    (p) =>
-      !p.targetAddress || p.targetAddress.toLowerCase() === selectedWhaleAddress.value.toLowerCase()
+// Données de performance filtrées et fenêtrées
+const performanceData = computed(() => {
+  return filterPerformancePoints(
+    metricsStore.performanceHistory,
+    selectedPeriod.value,
+    selectedWhaleAddress.value,
+    initialCapital.value
   );
 });
+
+const filteredPoints = computed(() => performanceData.value.points);
+const timeRange = computed(() => performanceData.value.timeRange);
 
 // Dimensions du SVG
 const width = 850;
@@ -71,16 +69,6 @@ const padding = { top: 30, right: 40, bottom: 40, left: 60 };
 
 const chartWidth = width - padding.left - padding.right;
 const chartHeight = height - padding.top - padding.bottom;
-
-// Échelles
-const timeRange = computed(() => {
-  const pts = filteredPoints.value;
-  if (pts.length === 0) return { min: 0, max: 1 };
-  const times = pts.map((p) => p.timestamp);
-  const min = Math.min(...times);
-  const max = Math.max(...times);
-  return { min, max: max === min ? min + 1 : max };
-});
 
 const valueRange = computed(() => {
   const pts = filteredPoints.value;
@@ -179,11 +167,12 @@ const yTicks = computed(() => {
   return ticks;
 });
 
-// Graduation X (Heures)
+// Graduation X (Heures ou Jours selon la granularité)
 const xTicks = computed(() => {
   const { min, max } = timeRange.value;
   const count = 4;
   const step = (max - min) / count;
+  const span = max - min;
   const ticks: { time: number; x: number; label: string }[] = [];
   for (let i = 0; i <= count; i++) {
     const time = min + step * i;
@@ -191,7 +180,7 @@ const xTicks = computed(() => {
     ticks.push({
       time,
       x: getX(time),
-      label: date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+      label: formatXTickLabel(date, selectedPeriod.value, span),
     });
   }
   return ticks;
@@ -227,6 +216,24 @@ function handleMouseLeave() {
 
       <!-- Contrôles et Filtres -->
       <div class="flex flex-wrap items-center gap-3">
+        <!-- Filtre Période Temporelle (1H, 24H, 3J, 1M, ALL) -->
+        <div class="inline-flex items-center p-1 rounded-xl border bg-slate-100 border-slate-200 dark:bg-[#0B0E14] dark:border-slate-800 text-xs">
+          <button
+            v-for="period in timeFilters"
+            :key="period.id"
+            type="button"
+            @click="selectedPeriod = period.id"
+            :class="[
+              'px-2.5 py-1 rounded-lg transition font-medium cursor-pointer text-[11px] font-mono',
+              selectedPeriod === period.id
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-bold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            ]"
+          >
+            {{ period.label }}
+          </button>
+        </div>
+
         <!-- Filtre Baleine -->
         <select
           v-model="selectedWhaleAddress"
@@ -480,7 +487,7 @@ function handleMouseLeave() {
         }"
       >
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5 text-slate-500 dark:text-slate-400 text-[11px]">
-          <span>{{ new Date(hoveredPoint.timestamp).toLocaleTimeString('fr-FR') }}</span>
+          <span>{{ formatTooltipDate(hoveredPoint.timestamp, selectedPeriod) }}</span>
           <span
             v-if="hoveredPoint.side"
             :class="[
@@ -555,7 +562,12 @@ function handleMouseLeave() {
       <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
         <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Trades Répliqués</span>
         <span class="text-sm font-bold font-mono text-sky-600 dark:text-sky-400">
-          {{ metricsStore.metrics.totalCopiedTrades }} exécutés
+          <template v-if="selectedPeriod === 'ALL'">
+            {{ metricsStore.metrics.totalCopiedTrades }} exécutés
+          </template>
+          <template v-else>
+            {{ tradeMarkers.length }} sur {{ selectedPeriod }} ({{ metricsStore.metrics.totalCopiedTrades }} total)
+          </template>
         </span>
       </div>
 
