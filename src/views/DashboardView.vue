@@ -15,6 +15,7 @@ import PositionsTable from "../components/PositionsTable.vue";
 import RiskSettingsPanel from "../components/RiskSettingsPanel.vue";
 import TargetsFollowTable from "../components/TargetsFollowTable.vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
+import { useLast24hSummaryStore } from "../stores/use-last-24h-summary.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
@@ -83,6 +84,7 @@ const targetsStore = useTargetsStore();
 const positionsStore = usePositionsStore();
 const tradesStore = useTradesStore();
 const configStore = useConfigStore();
+const last24hStore = useLast24hSummaryStore();
 
 onMounted(async () => {
   syncTabFromHash();
@@ -116,6 +118,7 @@ onMounted(async () => {
     const closed = data as { conditionId?: string };
     if (closed?.conditionId) {
       positionsStore.handlePositionClosed(closed.conditionId);
+      last24hStore.loadInitial();
       metricsStore.fetchMetrics();
     }
   });
