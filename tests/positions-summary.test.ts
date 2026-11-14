@@ -161,3 +161,42 @@ Deno.test("filterPositionsLast24h - isole les positions des dernières 24h et ig
   assertEquals(filtered[0]?.id, "recent-1");
   assertEquals(filtered[1]?.id, "border-1");
 });
+
+Deno.test("filterPositionsLast24h + calculatePositionsSummary - calcule fidèlement le bilan 24h vs bilan global", () => {
+  const now = 1731000000000;
+  const recentWin: OpenPosition = {
+    ...mockWinPosition1,
+    id: "recent-win",
+    closedAt: now - 1_000_000,
+    totalInvestedUsdc: 50,
+    settledPayoutUsdc: 100,
+    realizedPnlUsdc: 50,
+    closeReason: "RESOLVED_WIN",
+  };
+  const oldLoss: OpenPosition = {
+    ...mockLossPosition1,
+    id: "old-loss",
+    closedAt: now - 48 * 3_600_000,
+    totalInvestedUsdc: 100,
+    settledPayoutUsdc: 0,
+    realizedPnlUsdc: -100,
+    closeReason: "RESOLVED_LOSS",
+  };
+
+  const allPositions = [recentWin, oldLoss];
+  const allSummary = calculatePositionsSummary(allPositions);
+  assertEquals(allSummary.count, 2);
+  assertEquals(allSummary.winCount, 1);
+  assertEquals(allSummary.lossCount, 1);
+  assertEquals(allSummary.winRate, 50);
+  assertEquals(allSummary.netPnl, -50);
+
+  const pos24h = filterPositionsLast24h(allPositions, now);
+  const summary24h = calculatePositionsSummary(pos24h);
+  assertEquals(summary24h.count, 1);
+  assertEquals(summary24h.winCount, 1);
+  assertEquals(summary24h.lossCount, 0);
+  assertEquals(summary24h.winRate, 100);
+  assertEquals(summary24h.netPnl, 50);
+  assertEquals(summary24h.roiPercent, 100);
+});

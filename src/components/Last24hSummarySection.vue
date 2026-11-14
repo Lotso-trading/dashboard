@@ -2,6 +2,15 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useLast24hSummaryStore } from "../stores/use-last-24h-summary.store.ts";
 
+const props = withDefaults(
+  defineProps<{
+    hideKpis?: boolean;
+  }>(),
+  {
+    hideKpis: false,
+  }
+);
+
 const emit = defineEmits<(e: "navigate", tab: "CLOSED_JOURNAL") => void>();
 
 const store = useLast24hSummaryStore();
@@ -170,7 +179,10 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Grille des 4 KPIs 24h (ou Sélection) -->
-    <div class="p-6 bg-slate-50/60 dark:bg-slate-950/30 border-b border-slate-200 dark:border-slate-800">
+    <div
+      v-if="!props.hideKpis"
+      class="p-6 bg-slate-50/60 dark:bg-slate-950/30 border-b border-slate-200 dark:border-slate-800"
+    >
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <!-- 1. Bilan Net -->
         <div class="bg-white dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 rounded-xl p-3.5 shadow-2xs">

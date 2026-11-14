@@ -3,6 +3,10 @@ import { computed, ref } from "vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
+import {
+  calculatePositionsSummary,
+  filterPositionsLast24h,
+} from "../utils/positions-summary.ts";
 import Last24hSummarySection from "./Last24hSummarySection.vue";
 import WalletAdjustmentModal from "./WalletAdjustmentModal.vue";
 
@@ -11,6 +15,36 @@ const emit = defineEmits<(e: "navigate", tab: "CLOSED_JOURNAL" | "POSITIONS") =>
 const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
+
+const selectedPeriod = ref<"24H" | "ALL">("24H");
+
+const positions24h = computed(() => filterPositionsLast24h(positionsStore.closedPositions));
+const summary24h = computed(() => calculatePositionsSummary(positions24h.value));
+
+const displayedClosedSummary = computed(() => {
+  if (selectedPeriod.value === "24H") {
+    return {
+      count: positions24h.value.length,
+      winsCount: summary24h.value.winCount,
+      lossesCount: summary24h.value.lossCount,
+      winRatePercent: summary24h.value.winRate,
+      roiClosedPercent: summary24h.value.roiPercent,
+      totalInvestedClosedUsdc: summary24h.value.totalInvested,
+      totalSettledPayoutUsdc: summary24h.value.totalPayout,
+      totalRealizedPnlUsdc: summary24h.value.netPnl,
+    };
+  }
+  return {
+    count: positionsStore.closedPositions.length,
+    winsCount: positionsStore.winsCount,
+    lossesCount: positionsStore.lossesCount,
+    winRatePercent: positionsStore.winRatePercent,
+    roiClosedPercent: positionsStore.roiClosedPercent,
+    totalInvestedClosedUsdc: positionsStore.totalInvestedClosedUsdc,
+    totalSettledPayoutUsdc: positionsStore.totalSettledPayoutUsdc,
+    totalRealizedPnlUsdc: positionsStore.totalRealizedPnlUsdc,
+  };
+});
 
 const isWalletModalOpen = ref(false);
 const walletModalAction = ref<"DEPOSIT" | "WITHDRAW">("DEPOSIT");
@@ -306,26 +340,64 @@ async function refreshData(): Promise<void> {
       </div>
     </div>
 
-    <!-- 2. Scoreboard des Clôtures & Résolutions (19 marchés) -->
+    <!-- 2. Scoreboard des Clôtures & Résolutions -->
     <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-6 shadow-xs transition-colors">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <span>🏆</span> Bilan des {{ positionsStore.closedPositions.length }} Marchés Clôturés & Résolus
-          </h3>
+          <div class="flex items-center gap-2">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>🏆</span> Bilan des {{ displayedClosedSummary.count }} Marchés Clôturés & Résolus {{ selectedPeriod === '24H' ? '(24h)' : '(Historique)' }}
+            </h3>
+            <span
+              v-if="selectedPeriod === '24H'"
+              class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold border border-emerald-500/20"
+            >
+              DERNIÈRES 24H
+            </span>
+          </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Validation par oracle officiel Polymarket CLOB • Payout à 1,00 $ USDC pour chaque part gagnante
+            Validation par oracle officiel Polymarket CLOB • Payout à 1,00 $ USDC pour chaque part gagnante {{ selectedPeriod === '24H' ? 'sur les 24 dernières heures' : '' }}
           </p>
         </div>
 
-        <div class="flex items-center gap-4 text-xs font-mono">
-          <div class="flex items-center gap-2">
-            <span class="h-3 w-3 rounded-full bg-emerald-500"></span>
-            <span class="text-slate-700 dark:text-slate-300 font-semibold">{{ positionsStore.winsCount }} Victoires ({{ positionsStore.winRatePercent.toFixed(1) }}%)</span>
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Sélecteur 24h vs Tout -->
+          <div class="inline-flex items-center p-0.5 rounded-lg border bg-slate-100 border-slate-200 dark:bg-slate-950/60 dark:border-slate-800 text-xs shrink-0">
+            <button
+              type="button"
+              @click="selectedPeriod = '24H'"
+              :class="[
+                'px-2.5 py-1 rounded-md transition font-medium cursor-pointer text-[11px] flex items-center gap-1',
+                selectedPeriod === '24H'
+                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ]"
+            >
+              <span>⚡</span> 24h
+            </button>
+            <button
+              type="button"
+              @click="selectedPeriod = 'ALL'"
+              :class="[
+                'px-2.5 py-1 rounded-md transition font-medium cursor-pointer text-[11px] flex items-center gap-1',
+                selectedPeriod === 'ALL'
+                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ]"
+            >
+              <span>🏛️</span> Tout ({{ positionsStore.closedPositions.length }})
+            </button>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="h-3 w-3 rounded-full bg-rose-500"></span>
-            <span class="text-slate-500 dark:text-slate-400">{{ positionsStore.lossesCount }} Défaites</span>
+
+          <div class="flex items-center gap-3 text-xs font-mono">
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              <span class="text-slate-700 dark:text-slate-300 font-semibold">{{ displayedClosedSummary.winsCount }} Victoires ({{ displayedClosedSummary.winRatePercent.toFixed(1) }}%)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-rose-500"></span>
+              <span class="text-slate-500 dark:text-slate-400">{{ displayedClosedSummary.lossesCount }} Défaites</span>
+            </div>
           </div>
         </div>
       </div>
@@ -333,19 +405,26 @@ async function refreshData(): Promise<void> {
       <!-- Barre de Répartition Victoires / Défaites -->
       <div class="mt-5 space-y-2">
         <div class="flex justify-between text-xs font-mono text-slate-500 dark:text-slate-400">
-          <span>Taux de Réussite : <strong class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">{{ positionsStore.winRatePercent.toFixed(1) }} %</strong></span>
-          <span>ROI Réalisé : <strong class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">+{{ positionsStore.roiClosedPercent.toFixed(1) }} %</strong></span>
+          <span>Taux de Réussite : <strong class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">{{ displayedClosedSummary.winRatePercent.toFixed(1) }} %</strong></span>
+          <span>ROI Réalisé : <strong :class="displayedClosedSummary.roiClosedPercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'" class="font-bold text-sm">{{ displayedClosedSummary.roiClosedPercent >= 0 ? '+' : '' }}{{ displayedClosedSummary.roiClosedPercent.toFixed(1) }} %</strong></span>
         </div>
         <div class="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden flex">
+          <template v-if="displayedClosedSummary.count > 0">
+            <div
+              class="bg-emerald-500 h-full transition-all duration-500"
+              :style="{ width: `${displayedClosedSummary.winRatePercent}%` }"
+              title="Victoires"
+            ></div>
+            <div
+              class="bg-rose-500 h-full transition-all duration-500"
+              :style="{ width: `${100 - displayedClosedSummary.winRatePercent}%` }"
+              title="Défaites"
+            ></div>
+          </template>
           <div
-            class="bg-emerald-500 h-full transition-all duration-500"
-            :style="{ width: `${positionsStore.winRatePercent}%` }"
-            title="Victoires"
-          ></div>
-          <div
-            class="bg-rose-500 h-full transition-all duration-500"
-            :style="{ width: `${100 - positionsStore.winRatePercent}%` }"
-            title="Défaites"
+            v-else
+            class="bg-slate-200 dark:bg-slate-700/60 h-full w-full"
+            title="Aucune position clôturée sur cette période"
           ></div>
         </div>
       </div>
@@ -355,32 +434,38 @@ async function refreshData(): Promise<void> {
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Mises Engagées</span>
           <span class="text-base font-bold font-mono text-slate-900 dark:text-white">
-            ${{ positionsStore.totalInvestedClosedUsdc.toFixed(2) }}
+            ${{ displayedClosedSummary.totalInvestedClosedUsdc.toFixed(2) }}
           </span>
         </div>
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Total Racheté (Payout)</span>
           <span class="text-base font-bold font-mono text-slate-900 dark:text-white">
-            ${{ positionsStore.totalSettledPayoutUsdc.toFixed(2) }}
+            ${{ displayedClosedSummary.totalSettledPayoutUsdc.toFixed(2) }}
           </span>
         </div>
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Bénéfice Net Réalisé</span>
-          <span class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
-            +${{ positionsStore.totalRealizedPnlUsdc.toFixed(2) }}
+          <span
+            class="text-base font-bold font-mono"
+            :class="displayedClosedSummary.totalRealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+          >
+            {{ displayedClosedSummary.totalRealizedPnlUsdc >= 0 ? '+' : '' }}${{ displayedClosedSummary.totalRealizedPnlUsdc.toFixed(2) }}
           </span>
         </div>
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Rendement sur les Clôtures</span>
-          <span class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
-            +{{ positionsStore.roiClosedPercent.toFixed(1) }} %
+          <span
+            class="text-base font-bold font-mono"
+            :class="displayedClosedSummary.roiClosedPercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+          >
+            {{ displayedClosedSummary.roiClosedPercent >= 0 ? '+' : '' }}{{ displayedClosedSummary.roiClosedPercent.toFixed(1) }} %
           </span>
         </div>
       </div>
     </div>
 
     <!-- 4. Résumé des Dernières 24 Heures -->
-    <Last24hSummarySection @navigate="(tab) => emit('navigate', tab)" />
+    <Last24hSummarySection :hide-kpis="true" @navigate="(tab) => emit('navigate', tab)" />
 
     <!-- Modale interactive d'Ajout / Retrait de Fonds (Dry-Run) -->
     <WalletAdjustmentModal
