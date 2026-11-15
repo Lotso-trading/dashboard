@@ -3,10 +3,7 @@ import { computed, ref } from "vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
-import {
-  calculatePositionsSummary,
-  filterPositionsLast24h,
-} from "../utils/positions-summary.ts";
+import { calculatePositionsSummary, filterPositionsLast24h } from "../utils/positions-summary.ts";
 import Last24hSummarySection from "./Last24hSummarySection.vue";
 import WalletAdjustmentModal from "./WalletAdjustmentModal.vue";
 
@@ -100,6 +97,37 @@ const availableCashUsdc = computed<number>((): number => {
       positionsStore.totalInvestedUsdc +
       positionsStore.totalRealizedPnlUsdc
   );
+});
+
+const totalRealizedPnlUsdc = computed<number>((): number => {
+  if (typeof metricsStore.metrics.realizedPnlUsdc === "number") {
+    return metricsStore.metrics.realizedPnlUsdc;
+  }
+  return positionsStore.totalRealizedPnlUsdc;
+});
+
+const totalSettledPayoutUsdc = computed<number>((): number => {
+  if (
+    typeof metricsStore.metrics.totalSettledPayoutUsdc === "number" &&
+    metricsStore.metrics.totalSettledPayoutUsdc > 0
+  ) {
+    return metricsStore.metrics.totalSettledPayoutUsdc;
+  }
+  return positionsStore.totalSettledPayoutUsdc;
+});
+
+const sanctuarizedProfitUsdc = computed<number>((): number => {
+  const pnl = totalRealizedPnlUsdc.value;
+  if (pnl <= 0) return 0;
+  const protectPercent = 100 - (configStore.config?.profitReinvestmentPercent ?? 50);
+  return (pnl * protectPercent) / 100;
+});
+
+const reinvestedProfitUsdc = computed<number>((): number => {
+  const pnl = totalRealizedPnlUsdc.value;
+  if (pnl <= 0) return 0;
+  const reinvestPercent = configStore.config?.profitReinvestmentPercent ?? 50;
+  return (pnl * reinvestPercent) / 100;
 });
 
 const totalPortfolioValueUsdc = computed<number>((): number => {
@@ -297,25 +325,38 @@ async function refreshData(): Promise<void> {
           </div>
         </div>
 
-        <!-- 5. Bénéfice Net Réalisé Encaissé -->
+        <!-- 5. Bénéfices Encaissés -->
         <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs hover:border-emerald-500/40 transition-all">
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Bénéfices Encaissés (Sanctuarisés)</span>
+            <span class="font-medium">Bénéfices Encaissés</span>
             <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
               PORTFOLIO
             </span>
           </div>
           <div class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
-            +${{ positionsStore.totalRealizedPnlUsdc.toFixed(2) }}
+            +${{ totalRealizedPnlUsdc.toFixed(2) }}
           </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Gains nets Polymarket définitivement sécurisés dans le portefeuille.
-            <span class="block mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              🛡️ {{ 100 - (configStore.config?.profitReinvestmentPercent ?? 50) }}% sanctuarisé • Intouchable par le bot
-            </span>
-          </p>
-          <div class="mt-3 text-[11px] font-mono text-slate-500 dark:text-slate-400">
-            Total Payouts rachetés : <strong class="text-slate-900 dark:text-white">${{ positionsStore.totalSettledPayoutUsdc.toFixed(2) }}</strong>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 space-y-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
+                🛡️ Sanctuarisé ({{ 100 - (configStore.config?.profitReinvestmentPercent ?? 50) }}%) :
+              </span>
+              <strong class="font-mono text-emerald-600 dark:text-emerald-400">
+                +${{ sanctuarizedProfitUsdc.toFixed(2) }}
+              </strong>
+            </div>
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-blue-600 dark:text-blue-400 font-semibold">
+                🔄 Réinvesti ({{ configStore.config?.profitReinvestmentPercent ?? 50 }}%) :
+              </span>
+              <strong class="font-mono text-blue-600 dark:text-blue-400">
+                +${{ reinvestedProfitUsdc.toFixed(2) }}
+              </strong>
+            </div>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[11px] font-mono text-slate-500 dark:text-slate-400 flex items-center justify-between">
+            <span>Total Payouts rachetés :</span>
+            <strong class="text-slate-900 dark:text-white">${{ totalSettledPayoutUsdc.toFixed(2) }}</strong>
           </div>
         </div>
 
