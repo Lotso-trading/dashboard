@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
+import { getPolymarketUrl } from "../utils/polymarket-url.ts";
 
 const positionsStore = usePositionsStore();
 const activeTab = ref<"OPEN" | "CLOSED">("OPEN");
@@ -22,29 +23,12 @@ async function handleSettlement() {
 }
 
 function getMarketUrl(position: {
+  eventSlug?: string;
   marketSlug?: string;
   marketQuestion?: string;
   conditionId?: string;
 }): string {
-  if (
-    position.marketSlug &&
-    position.marketSlug !== "market" &&
-    position.marketSlug !== "polygon-onchain" &&
-    position.marketSlug !== "polymarket-market"
-  ) {
-    return `https://polymarket.com/event/${position.marketSlug}`;
-  }
-  if (
-    position.marketQuestion &&
-    position.marketQuestion !== "Polymarket Question" &&
-    position.marketQuestion !== "Question inconnue"
-  ) {
-    return `https://polymarket.com/search?q=${encodeURIComponent(position.marketQuestion)}`;
-  }
-  if (position.conditionId && position.conditionId !== "0x") {
-    return `https://polymarket.com/search?q=${encodeURIComponent(position.conditionId)}`;
-  }
-  return "https://polymarket.com";
+  return getPolymarketUrl(position);
 }
 
 function formatLocalDate(isoDate?: string): string {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useLast24hSummaryStore } from "../stores/use-last-24h-summary.store.ts";
+import { getPolymarketUrl } from "../utils/polymarket-url.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -286,7 +287,7 @@ onBeforeUnmount(() => {
           >
             <td class="py-3 px-6 font-sans">
               <a
-                :href="`https://polymarket.com/event/${pos.marketSlug}`"
+                :href="getPolymarketUrl(pos)"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1 flex items-center gap-1.5"
