@@ -118,6 +118,8 @@ onMounted(async () => {
     const closed = data as { conditionId?: string };
     if (closed?.conditionId) {
       positionsStore.handlePositionClosed(closed.conditionId);
+      positionsStore.fetchClosedPositions();
+      targetsStore.fetchTargets();
       last24hStore.loadInitial();
       metricsStore.fetchMetrics();
     }

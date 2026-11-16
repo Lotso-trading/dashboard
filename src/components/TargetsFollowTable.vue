@@ -1,11 +1,77 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import type { TargetTrader } from "@polymarket-copy/shared";
+import { computed, ref } from "vue";
+import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
 import AddTargetModal from "./AddTargetModal.vue";
 
 const targetsStore = useTargetsStore();
+const positionsStore = usePositionsStore();
 const isModalOpen = ref(false);
 const viewMode = ref<"CARDS" | "TABLE">("CARDS");
+
+function getTargetPerformance(target: TargetTrader) {
+  const addr = target.address.toLowerCase();
+
+  // Positions fermées associées à cette baleine dans le store local
+  const closedForTarget = positionsStore.closedPositions.filter(
+    (p) => p.targetAddress?.toLowerCase() === addr
+  );
+
+  const localWins = closedForTarget.filter(
+    (p) => p.closeReason === "RESOLVED_WIN" || (p.realizedPnlUsdc ?? 0) > 0
+  ).length;
+
+  const localLosses = closedForTarget.filter(
+    (p) => p.closeReason === "RESOLVED_LOSS" || (p.realizedPnlUsdc ?? 0) < 0
+  ).length;
+
+  const localPnl = closedForTarget.reduce(
+    (acc, p) => acc + (p.realizedPnlUsdc ?? 0),
+    0
+  );
+
+  // Privilégier les stats agrégées serveur, ou fallback dynamique sur les positions fermées locales
+  const wins =
+    target.stats.wonTrades !== undefined && target.stats.wonTrades > 0
+      ? target.stats.wonTrades
+      : localWins;
+
+  const losses =
+    target.stats.lostTrades !== undefined && target.stats.lostTrades > 0
+      ? target.stats.lostTrades
+      : localLosses;
+
+  const totalClosed = wins + losses;
+
+  const realizedPnl =
+    Math.abs(target.stats.realizedPnlUsdc) > 0.001
+      ? target.stats.realizedPnlUsdc
+      : localPnl;
+
+  const winRate =
+    totalClosed > 0
+      ? (wins / totalClosed) * 100
+      : (target.stats.winRatePercent ?? 0);
+
+  return {
+    trades: target.stats.totalCopiedTrades,
+    volume: target.stats.totalCopiedVolumeUsdc,
+    realizedPnl,
+    wins,
+    losses,
+    totalClosed,
+    winRate,
+  };
+}
+
+const targetsPerformance = computed(() => {
+  const map = new Map<string, ReturnType<typeof getTargetPerformance>>();
+  for (const t of targetsStore.targets) {
+    map.set(t.id, getTargetPerformance(t));
+  }
+  return map;
+});
 
 async function handleToggle(id: string, currentStatus: boolean): Promise<void> {
   await targetsStore.toggleTarget(id, !currentStatus);
@@ -149,29 +215,43 @@ async function handleDelete(id: string, alias: string): Promise<void> {
               <span class="h-1.5 w-1.5 rounded-full" :class="target.enabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'" />
               {{ target.enabled ? 'Actif' : 'En Pause' }}
             </span>
+            <span
+              v-if="(targetsPerformance.get(target.id)?.totalClosed ?? 0) > 0"
+              class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30"
+            >
+              Win Rate : {{ targetsPerformance.get(target.id)?.winRate.toFixed(0) }}%
+            </span>
           </div>
 
-          <!-- 3-Metrics Bento Strip -->
-          <div class="grid grid-cols-3 gap-2 bg-white dark:bg-black/30 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.04] text-center font-mono">
+          <!-- 4-Metrics Bento Strip -->
+          <div class="grid grid-cols-4 gap-1.5 bg-white dark:bg-black/30 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.04] text-center font-mono">
             <div>
               <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">Trades</div>
               <div class="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">
-                {{ target.stats.totalCopiedTrades }}
+                {{ targetsPerformance.get(target.id)?.trades ?? 0 }}
               </div>
             </div>
-            <div class="border-x border-slate-200/80 dark:border-white/[0.04]">
+            <div class="border-l border-slate-200/80 dark:border-white/[0.04]">
+              <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">W / L</div>
+              <div class="text-xs font-bold mt-0.5 flex items-center justify-center gap-0.5">
+                <span class="text-emerald-600 dark:text-emerald-400">{{ targetsPerformance.get(target.id)?.wins ?? 0 }}W</span>
+                <span class="text-slate-400 text-[10px]">-</span>
+                <span class="text-rose-600 dark:text-rose-400">{{ targetsPerformance.get(target.id)?.losses ?? 0 }}L</span>
+              </div>
+            </div>
+            <div class="border-l border-slate-200/80 dark:border-white/[0.04]">
               <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">Volume</div>
               <div class="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">
-                ${{ target.stats.totalCopiedVolumeUsdc.toFixed(0) }}
+                ${{ (targetsPerformance.get(target.id)?.volume ?? 0).toFixed(0) }}
               </div>
             </div>
-            <div>
+            <div class="border-l border-slate-200/80 dark:border-white/[0.04]">
               <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">PnL Net</div>
               <div
                 class="text-xs font-bold mt-0.5"
-                :class="target.stats.realizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+                :class="(targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
               >
-                {{ target.stats.realizedPnlUsdc >= 0 ? '+' : '' }}${{ target.stats.realizedPnlUsdc.toFixed(2) }}
+                {{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? '+' : '' }}${{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0).toFixed(2) }}
               </div>
             </div>
           </div>
@@ -222,6 +302,7 @@ async function handleDelete(id: string, alias: string): Promise<void> {
             <th class="py-3 px-4">Poids</th>
             <th class="py-3 px-4">Plafond USDC</th>
             <th class="py-3 px-4">Trades Copiés</th>
+            <th class="py-3 px-4">W / L</th>
             <th class="py-3 px-4">Volume Généré</th>
             <th class="py-3 px-4">PnL Réalisé</th>
             <th class="py-3 px-6 text-right">Actions</th>
@@ -292,17 +373,35 @@ async function handleDelete(id: string, alias: string): Promise<void> {
 
             <!-- Trades Copiés -->
             <td class="py-3 px-4 font-mono text-slate-700 dark:text-slate-200">
-              {{ target.stats.totalCopiedTrades }}
+              {{ targetsPerformance.get(target.id)?.trades ?? 0 }}
+            </td>
+
+            <!-- W / L Counter -->
+            <td class="py-3 px-4 font-mono">
+              <span class="inline-flex items-center gap-1 font-semibold text-xs">
+                <span class="text-emerald-600 dark:text-emerald-400">{{ targetsPerformance.get(target.id)?.wins ?? 0 }}W</span>
+                <span class="text-slate-400">-</span>
+                <span class="text-rose-600 dark:text-rose-400">{{ targetsPerformance.get(target.id)?.losses ?? 0 }}L</span>
+                <span
+                  v-if="(targetsPerformance.get(target.id)?.totalClosed ?? 0) > 0"
+                  class="text-[10px] text-slate-400 ml-1 font-normal"
+                >
+                  ({{ (targetsPerformance.get(target.id)?.winRate ?? 0).toFixed(0) }}%)
+                </span>
+              </span>
             </td>
 
             <!-- Volume Généré -->
             <td class="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-200">
-              ${{ target.stats.totalCopiedVolumeUsdc.toFixed(2) }}
+              ${{ (targetsPerformance.get(target.id)?.volume ?? 0).toFixed(2) }}
             </td>
 
             <!-- PnL Réalisé -->
-            <td class="py-3 px-4 font-mono font-semibold" :class="target.stats.realizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'">
-              {{ target.stats.realizedPnlUsdc >= 0 ? '+' : '' }}${{ target.stats.realizedPnlUsdc.toFixed(2) }}
+            <td
+              class="py-3 px-4 font-mono font-semibold"
+              :class="(targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+            >
+              {{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? '+' : '' }}${{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0).toFixed(2) }}
             </td>
 
             <!-- Actions -->
@@ -320,7 +419,7 @@ async function handleDelete(id: string, alias: string): Promise<void> {
 
           <!-- Empty State in Table Mode -->
           <tr v-if="targetsStore.targets.length === 0">
-            <td colspan="8" class="text-center py-10 text-slate-400">
+            <td colspan="9" class="text-center py-10 text-slate-400">
               <div class="text-2xl mb-2">🎯</div>
               <p class="font-medium text-slate-700 dark:text-slate-300">Aucune cible sous surveillance pour le moment</p>
               <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Traquer une Baleine" pour activer la réplication furtive d'un trader.</p>

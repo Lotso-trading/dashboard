@@ -230,13 +230,13 @@ onBeforeUnmount(() => {
           <thead>
             <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
               <th class="py-3 px-6">Marché / Événement</th>
-              <th class="py-3 px-4">Issue</th>
-              <th class="py-3 px-4">Parts</th>
-              <th class="py-3 px-4">Mise Engagée</th>
-              <th class="py-3 px-4">Prix Moyen</th>
-              <th class="py-3 px-4">Payout Reçu</th>
-              <th class="py-3 px-4">Gain Net (PnL)</th>
-              <th class="py-3 px-6 text-right">Résultat</th>
+              <th class="py-3 px-4 whitespace-nowrap">Issue</th>
+              <th class="py-3 px-4 whitespace-nowrap">Parts</th>
+              <th class="py-3 px-4 whitespace-nowrap">Mise Engagée</th>
+              <th class="py-3 px-4 whitespace-nowrap">Prix Moyen</th>
+              <th class="py-3 px-4 whitespace-nowrap">Payout Reçu</th>
+              <th class="py-3 px-4 whitespace-nowrap">Gain Net (PnL)</th>
+              <th class="py-3 px-6 text-right whitespace-nowrap">Résultat</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300 font-mono">
@@ -260,39 +260,42 @@ onBeforeUnmount(() => {
                 </span>
               </td>
 
-              <td class="py-3.5 px-4 font-sans">
-                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <td class="py-3.5 px-4 font-sans whitespace-nowrap">
+                <span
+                  class="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap"
+                  :title="pos.outcomeLabel"
+                >
                   {{ pos.outcomeLabel }}
                 </span>
               </td>
 
-              <td class="py-3.5 px-4 text-slate-900 dark:text-white">
+              <td class="py-3.5 px-4 text-slate-900 dark:text-white whitespace-nowrap">
                 {{ pos.totalShares.toFixed(2) }}
               </td>
 
-              <td class="py-3.5 px-4">
+              <td class="py-3.5 px-4 whitespace-nowrap">
                 ${{ (pos.totalInvestedUsdc || 0).toFixed(2) }}
               </td>
 
-              <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+              <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 ${{ (pos.avgEntryPrice || 0).toFixed(3) }}
               </td>
 
-              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
                 ${{ (pos.settledPayoutUsdc || 0).toFixed(2) }}
               </td>
 
               <td
-                class="py-3.5 px-4 font-bold"
+                class="py-3.5 px-4 font-bold whitespace-nowrap"
                 :class="(pos.realizedPnlUsdc ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
               >
                 {{ (pos.realizedPnlUsdc ?? 0) >= 0 ? '+' : '' }}${{ (pos.realizedPnlUsdc ?? 0).toFixed(2) }}
               </td>
 
-              <td class="py-3.5 px-6 text-right font-sans">
+              <td class="py-3.5 px-6 text-right font-sans whitespace-nowrap">
                 <div class="flex flex-col items-end gap-1">
                   <span
-                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap"
                     :class="pos.closeReason === 'RESOLVED_WIN'
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                       : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'"

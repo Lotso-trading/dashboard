@@ -242,24 +242,6 @@ async function refreshData(): Promise<void> {
               ></div>
             </div>
           </div>
-
-          <!-- Boutons Ajouter / Retirer des fonds -->
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-            <button
-              type="button"
-              @click="openWalletModal('DEPOSIT')"
-              class="flex-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span>➕</span> Ajouter des fonds
-            </button>
-            <button
-              type="button"
-              @click="openWalletModal('WITHDRAW')"
-              class="flex-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer"
-            >
-              <span>➖</span> Retirer
-            </button>
-          </div>
         </div>
 
         <!-- 2. Capital Engagé (Positions Ouvertes) -->
