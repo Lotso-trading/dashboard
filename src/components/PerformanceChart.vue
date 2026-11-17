@@ -1,13 +1,31 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { PerformancePoint } from "../api/http-client.ts";
+import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
+import {
+    filterPerformancePoints,
+    formatTooltipDate,
+    formatXTickLabel,
+    type TimeFilterPeriod,
+} from "../utils/performance-filter.ts";
 
+const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const targetsStore = useTargetsStore();
 const tradesStore = useTradesStore();
+
+const initialCapital = computed(() => {
+    if (
+        configStore.config?.maxAllocatedCapitalUsdc &&
+        configStore.config.maxAllocatedCapitalUsdc > 0
+    ) {
+        return configStore.config.maxAllocatedCapitalUsdc;
+    }
+    return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+});
 
 // Visibilité des séries
 const showPortfolioValue = ref(true);
@@ -16,41 +34,33 @@ const showWhaleVolume = ref(true);
 const showTradeMarkers = ref(true);
 const selectedWhaleAddress = ref<string>("ALL");
 
+// Filtre temporel (1H, 24H, 3J, 1M, ALL)
+const selectedPeriod = ref<TimeFilterPeriod>("ALL");
+const timeFilters: { id: TimeFilterPeriod; label: string }[] = [
+    { id: "1H", label: "1H" },
+    { id: "24H", label: "24H" },
+    { id: "3J", label: "3J" },
+    { id: "1M", label: "1M" },
+    { id: "ALL", label: "ALL" },
+];
+
 // État du survol interactif
 const hoveredPoint = ref<PerformancePoint | null>(null);
 const hoverX = ref<number>(0);
 const hoverY = ref<number>(0);
 
-// Points filtrés
-const filteredPoints = computed(() => {
-  const points = metricsStore.performanceHistory;
-  if (points.length === 0) {
-    // Si aucun point dans l'historique, générer un point de référence 1000$
-    return [
-      {
-        timestamp: Date.now() - 3600000,
-        myCumulativePnlUsdc: 0,
-        portfolioValueUsdc: 1000.0,
-        whaleCumulativeUsdc: 0,
-      },
-      {
-        timestamp: Date.now(),
-        myCumulativePnlUsdc: 0,
-        portfolioValueUsdc: 1000.0,
-        whaleCumulativeUsdc: 0,
-      },
-    ];
-  }
-
-  if (selectedWhaleAddress.value === "ALL") {
-    return points;
-  }
-
-  return points.filter(
-    (p) =>
-      !p.targetAddress || p.targetAddress.toLowerCase() === selectedWhaleAddress.value.toLowerCase()
-  );
+// Données de performance filtrées et fenêtrées
+const performanceData = computed(() => {
+    return filterPerformancePoints(
+        metricsStore.performanceHistory,
+        selectedPeriod.value,
+        selectedWhaleAddress.value,
+        initialCapital.value
+    );
 });
+
+const filteredPoints = computed(() => performanceData.value.points);
+const timeRange = computed(() => performanceData.value.timeRange);
 
 // Dimensions du SVG
 const width = 850;
@@ -60,143 +70,134 @@ const padding = { top: 30, right: 40, bottom: 40, left: 60 };
 const chartWidth = width - padding.left - padding.right;
 const chartHeight = height - padding.top - padding.bottom;
 
-// Échelles
-const timeRange = computed(() => {
-  const pts = filteredPoints.value;
-  if (pts.length === 0) return { min: 0, max: 1 };
-  const times = pts.map((p) => p.timestamp);
-  const min = Math.min(...times);
-  const max = Math.max(...times);
-  return { min, max: max === min ? min + 1 : max };
-});
-
 const valueRange = computed(() => {
-  const pts = filteredPoints.value;
-  if (pts.length === 0) return { min: 950, max: 1050 };
+    const pts = filteredPoints.value;
+    if (pts.length === 0) return { min: 950, max: 1050 };
 
-  const values: number[] = [];
-  for (const p of pts) {
-    if (showPortfolioValue.value) values.push(p.portfolioValueUsdc);
-    if (showMyCumulativePnl.value) values.push(p.myCumulativePnlUsdc + 1000); // normalisé
-    if (showWhaleVolume.value) values.push(p.whaleCumulativeUsdc);
-  }
+    const values: number[] = [];
+    for (const p of pts) {
+        if (showPortfolioValue.value) values.push(p.portfolioValueUsdc);
+        if (showMyCumulativePnl.value) values.push(p.myCumulativePnlUsdc + initialCapital.value); // normalisé
+        if (showWhaleVolume.value) values.push(p.whaleCumulativeUsdc);
+    }
 
-  if (values.length === 0) return { min: 0, max: 1100 };
+    if (values.length === 0) return { min: 0, max: 1100 };
 
-  const minVal = Math.min(...values, 0);
-  const maxVal = Math.max(...values, 1050);
-  const pad = (maxVal - minVal) * 0.1 || 50;
+    const minVal = Math.min(...values, 0);
+    const maxVal = Math.max(...values, 1050);
+    const pad = (maxVal - minVal) * 0.1 || 50;
 
-  return {
-    min: Math.floor(minVal - pad),
-    max: Math.ceil(maxVal + pad),
-  };
+    return {
+        min: Math.floor(minVal - pad),
+        max: Math.ceil(maxVal + pad),
+    };
 });
 
 // Fonctions de coordonnées
 function getX(timestamp: number): number {
-  const { min, max } = timeRange.value;
-  if (max === min) return padding.left + chartWidth / 2;
-  return padding.left + ((timestamp - min) / (max - min)) * chartWidth;
+    const { min, max } = timeRange.value;
+    if (max === min) return padding.left + chartWidth / 2;
+    return padding.left + ((timestamp - min) / (max - min)) * chartWidth;
 }
 
 function getY(val: number): number {
-  const { min, max } = valueRange.value;
-  if (max === min) return padding.top + chartHeight / 2;
-  return padding.top + chartHeight - ((val - min) / (max - min)) * chartHeight;
+    const { min, max } = valueRange.value;
+    if (max === min) return padding.top + chartHeight / 2;
+    return padding.top + chartHeight - ((val - min) / (max - min)) * chartHeight;
 }
 
 // Construction des tracés SVG
 const portfolioPath = computed(() => {
-  const pts = filteredPoints.value;
-  if (pts.length === 0) return "";
-  return pts
-    .map(
-      (p, i) =>
-        `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.portfolioValueUsdc).toFixed(1)}`
-    )
-    .join(" ");
+    const pts = filteredPoints.value;
+    if (pts.length === 0) return "";
+    return pts
+        .map(
+            (p, i) =>
+                `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.portfolioValueUsdc).toFixed(1)}`
+        )
+        .join(" ");
 });
 
 const portfolioAreaPath = computed(() => {
-  const pts = filteredPoints.value;
-  if (pts.length === 0) return "";
-  const firstX = getX(pts[0].timestamp);
-  const lastX = getX(pts[pts.length - 1].timestamp);
-  const bottomY = padding.top + chartHeight;
-  return `${portfolioPath.value} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`;
+    const pts = filteredPoints.value;
+    if (pts.length === 0) return "";
+    const firstX = getX(pts[0].timestamp);
+    const lastX = getX(pts[pts.length - 1].timestamp);
+    const bottomY = padding.top + chartHeight;
+    return `${portfolioPath.value} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`;
 });
 
 const myPnlPath = computed(() => {
-  const pts = filteredPoints.value;
-  if (pts.length === 0) return "";
-  return pts
-    .map(
-      (p, i) =>
-        `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.myCumulativePnlUsdc + 1000).toFixed(1)}`
-    )
-    .join(" ");
+    const pts = filteredPoints.value;
+    if (pts.length === 0) return "";
+    return pts
+        .map(
+            (p, i) =>
+                `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.myCumulativePnlUsdc + initialCapital.value).toFixed(1)}`
+        )
+        .join(" ");
 });
 
 const whalePath = computed(() => {
-  const pts = filteredPoints.value;
-  if (pts.length === 0) return "";
-  return pts
-    .map(
-      (p, i) =>
-        `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.whaleCumulativeUsdc).toFixed(1)}`
-    )
-    .join(" ");
+    const pts = filteredPoints.value;
+    if (pts.length === 0) return "";
+    return pts
+        .map(
+            (p, i) =>
+                `${i === 0 ? "M" : "L"} ${getX(p.timestamp).toFixed(1)} ${getY(p.whaleCumulativeUsdc).toFixed(1)}`
+        )
+        .join(" ");
 });
 
 // Points de trade individuels
 const tradeMarkers = computed(() => {
-  return filteredPoints.value.filter((p) => p.side !== undefined);
+    return filteredPoints.value.filter((p) => p.side !== undefined);
 });
 
 // Graduation Y
 const yTicks = computed(() => {
-  const { min, max } = valueRange.value;
-  const count = 5;
-  const step = (max - min) / count;
-  const ticks: { val: number; y: number }[] = [];
-  for (let i = 0; i <= count; i++) {
-    const val = Math.round(min + step * i);
-    ticks.push({ val, y: getY(val) });
-  }
-  return ticks;
+    const { min, max } = valueRange.value;
+    const count = 5;
+    const step = (max - min) / count;
+    const ticks: { val: number; y: number }[] = [];
+    for (let i = 0; i <= count; i++) {
+        const val = Math.round(min + step * i);
+        ticks.push({ val, y: getY(val) });
+    }
+    return ticks;
 });
 
-// Graduation X (Heures)
+// Graduation X (Heures ou Jours selon la granularité)
 const xTicks = computed(() => {
-  const { min, max } = timeRange.value;
-  const count = 4;
-  const step = (max - min) / count;
-  const ticks: { time: number; x: number; label: string }[] = [];
-  for (let i = 0; i <= count; i++) {
-    const time = min + step * i;
-    const date = new Date(time);
-    ticks.push({
-      time,
-      x: getX(time),
-      label: date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-    });
-  }
-  return ticks;
+    const { min, max } = timeRange.value;
+    const count = 4;
+    const step = (max - min) / count;
+    const span = max - min;
+    const ticks: { time: number; x: number; label: string }[] = [];
+    for (let i = 0; i <= count; i++) {
+        const time = min + step * i;
+        const date = new Date(time);
+        ticks.push({
+            time,
+            x: getX(time),
+            label: formatXTickLabel(date, selectedPeriod.value, span),
+        });
+    }
+    return ticks;
 });
 
 function handlePointHover(point: PerformancePoint, event: MouseEvent) {
-  hoveredPoint.value = point;
-  const target = event.currentTarget as HTMLElement | null;
-  if (target) {
-    const rect = target.getBoundingClientRect();
-    hoverX.value = rect.left + rect.width / 2;
-    hoverY.value = rect.top;
-  }
+    hoveredPoint.value = point;
+    const target = event.currentTarget as HTMLElement | null;
+    if (target) {
+        const rect = target.getBoundingClientRect();
+        hoverX.value = rect.left + rect.width / 2;
+        hoverY.value = rect.top;
+    }
 }
 
 function handleMouseLeave() {
-  hoveredPoint.value = null;
+    hoveredPoint.value = null;
 }
 </script>
 
@@ -206,15 +207,33 @@ function handleMouseLeave() {
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800/80">
       <div>
         <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <span>📈</span> Courbe de Performance & Suivi des Trades (Baleine vs Copie)
+          <span>📈</span> Courbe de Performance Lotso vs Cibles
         </h3>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Évolution en temps réel de votre capital (1 000 $ base), vos gains copiés et les trades répliqués
+          Évolution en temps réel de votre capital, comparaison des gains et traçabilité des ordres répliqués
         </p>
       </div>
 
       <!-- Contrôles et Filtres -->
       <div class="flex flex-wrap items-center gap-3">
+        <!-- Filtre Période Temporelle (1H, 24H, 3J, 1M, ALL) -->
+        <div class="inline-flex items-center p-1 rounded-xl border bg-slate-100 border-slate-200 dark:bg-[#0B0E14] dark:border-slate-800 text-xs">
+          <button
+            v-for="period in timeFilters"
+            :key="period.id"
+            type="button"
+            @click="selectedPeriod = period.id"
+            :class="[
+              'px-2.5 py-1 rounded-lg transition font-medium cursor-pointer text-[11px] font-mono',
+              selectedPeriod === period.id
+                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-bold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            ]"
+          >
+            {{ period.label }}
+          </button>
+        </div>
+
         <!-- Filtre Baleine -->
         <select
           v-model="selectedWhaleAddress"
@@ -343,23 +362,23 @@ function handleMouseLeave() {
           </text>
         </g>
 
-        <!-- Ligne de flottaison Base 1 000 $ -->
+        <!-- Ligne de flottaison Base Capital -->
         <line
           :x1="padding.left"
-          :y1="getY(1000)"
+          :y1="getY(initialCapital)"
           :x2="width - padding.right"
-          :y2="getY(1000)"
+          :y2="getY(initialCapital)"
           stroke="#475569"
           stroke-width="1"
           stroke-dasharray="4,4"
         />
         <text
           :x="width - padding.right + 5"
-          :y="getY(1000) + 3"
+          :y="getY(initialCapital) + 3"
           fill="#64748b"
           class="text-[9px]"
         >
-          Base 1 000 $
+          Base {{ initialCapital }} $
         </text>
 
         <!-- Labels X (Heures) -->
@@ -393,7 +412,7 @@ function handleMouseLeave() {
           class="transition-all duration-300"
         />
 
-        <!-- Courbe 2 : PnL Copié Net (+ base 1000) -->
+        <!-- Courbe 2 : PnL Copié Net (+ base capital) -->
         <path
           v-if="showMyCumulativePnl && myPnlPath"
           :d="myPnlPath"
@@ -468,7 +487,7 @@ function handleMouseLeave() {
         }"
       >
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5 text-slate-500 dark:text-slate-400 text-[11px]">
-          <span>{{ new Date(hoveredPoint.timestamp).toLocaleTimeString('fr-FR') }}</span>
+          <span>{{ formatTooltipDate(hoveredPoint.timestamp, selectedPeriod) }}</span>
           <span
             v-if="hoveredPoint.side"
             :class="[
@@ -526,7 +545,7 @@ function handleMouseLeave() {
       <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
         <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Capital Actuel</span>
         <span class="text-sm font-bold font-mono text-slate-900 dark:text-white">
-          ${{ (1000 - metricsStore.metrics.totalInvestedUsdc + metricsStore.metrics.currentPositionsValueUsdc).toFixed(2) }}
+          ${{ (initialCapital - metricsStore.metrics.totalInvestedUsdc + metricsStore.metrics.currentPositionsValueUsdc).toFixed(2) }}
         </span>
       </div>
 
@@ -543,7 +562,12 @@ function handleMouseLeave() {
       <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
         <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Trades Répliqués</span>
         <span class="text-sm font-bold font-mono text-sky-600 dark:text-sky-400">
-          {{ metricsStore.metrics.totalCopiedTrades }} exécutés
+          <template v-if="selectedPeriod === 'ALL'">
+            {{ metricsStore.metrics.totalCopiedTrades }} exécutés
+          </template>
+          <template v-else>
+            {{ tradeMarkers.length }} sur {{ selectedPeriod }} ({{ metricsStore.metrics.totalCopiedTrades }} total)
+          </template>
         </span>
       </div>
 

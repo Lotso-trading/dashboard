@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import type {
-  ExecutedTrade,
-  OpenPosition,
-  RiskConfig,
-  TargetTrader,
-} from "@polymarket-copy/shared";
-import { onMounted, ref } from "vue";
+import type { ExecutedTrade, OpenPosition, RiskConfig, TargetTrader } from "@lotso-trading/shared";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { wsClient } from "../api/websocket-client.ts";
 import FinancialSynthesisView from "../components/FinancialSynthesisView.vue";
 import LiveActivityFeed from "../components/LiveActivityFeed.vue";
@@ -15,92 +10,178 @@ import PositionsTable from "../components/PositionsTable.vue";
 import RiskSettingsPanel from "../components/RiskSettingsPanel.vue";
 import TargetsFollowTable from "../components/TargetsFollowTable.vue";
 import { useConfigStore } from "../stores/use-config.store.ts";
+import { useLast24hSummaryStore } from "../stores/use-last-24h-summary.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
+import ClosedPositionsJournalView from "./ClosedPositionsJournalView.vue";
 
-const currentTab = ref<"SYNTHESIS" | "OVERVIEW" | "TARGETS" | "POSITIONS" | "FEED" | "RISK">(
-  "SYNTHESIS"
-);
+export type DashboardTab =
+    | "SYNTHESIS"
+    | "OVERVIEW"
+    | "TARGETS"
+    | "POSITIONS"
+    | "CLOSED_JOURNAL"
+    | "FEED"
+    | "RISK";
+
+const currentTab = ref<DashboardTab>("SYNTHESIS");
+
+function setTab(tab: DashboardTab): void {
+    currentTab.value = tab;
+    updateHash(tab);
+}
+
+function updateHash(tab: DashboardTab): void {
+    const map: Record<DashboardTab, string> = {
+        SYNTHESIS: "synthesis",
+        OVERVIEW: "overview",
+        TARGETS: "targets",
+        POSITIONS: "positions",
+        CLOSED_JOURNAL: "closed-journal",
+        FEED: "feed",
+        RISK: "risk",
+    };
+    const targetHash = `#${map[tab] || "synthesis"}`;
+    if (typeof window !== "undefined" && window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+    }
+}
+
+function syncTabFromHash(): void {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.toLowerCase();
+    if (
+        hash === "#closed-journal" ||
+        hash === "#closed" ||
+        hash === "#history" ||
+        hash === "#journal"
+    ) {
+        currentTab.value = "CLOSED_JOURNAL";
+    } else if (hash === "#overview") {
+        currentTab.value = "OVERVIEW";
+    } else if (hash === "#targets") {
+        currentTab.value = "TARGETS";
+    } else if (hash === "#positions") {
+        currentTab.value = "POSITIONS";
+    } else if (hash === "#feed") {
+        currentTab.value = "FEED";
+    } else if (hash === "#risk") {
+        currentTab.value = "RISK";
+    } else if (hash === "#synthesis") {
+        currentTab.value = "SYNTHESIS";
+    }
+}
 
 const metricsStore = useMetricsStore();
 const targetsStore = useTargetsStore();
 const positionsStore = usePositionsStore();
 const tradesStore = useTradesStore();
 const configStore = useConfigStore();
+const last24hStore = useLast24hSummaryStore();
 
 onMounted(async () => {
-  // Chargement initial des stores
-  await Promise.all([
-    metricsStore.fetchMetrics(),
-    targetsStore.fetchTargets(),
-    positionsStore.fetchPositions(),
-    positionsStore.fetchClosedPositions(),
-    tradesStore.fetchTrades(1, 30),
-    configStore.fetchConfig(),
-  ]);
+    syncTabFromHash();
+    window.addEventListener("hashchange", syncTabFromHash);
 
-  // Connexion WebSocket temps réel
-  wsClient.connect();
+    // Chargement initial des stores
+    await Promise.all([
+        metricsStore.fetchMetrics(),
+        targetsStore.fetchTargets(),
+        positionsStore.fetchPositions(),
+        positionsStore.fetchClosedPositions(),
+        tradesStore.fetchTrades(1, 30),
+        configStore.fetchConfig(),
+    ]);
 
-  wsClient.on("trade:created", (trade) => {
-    tradesStore.handleTradeCreated(trade as ExecutedTrade);
-    metricsStore.fetchMetrics();
-    positionsStore.fetchPositions();
-  });
+    // Connexion WebSocket temps réel
+    wsClient.connect();
 
-  wsClient.on("position:updated", (pos) => {
-    positionsStore.handlePositionUpdated(pos as OpenPosition);
-    metricsStore.fetchMetrics();
-  });
+    wsClient.on("trade:created", (trade) => {
+        tradesStore.handleTradeCreated(trade as ExecutedTrade);
+        metricsStore.fetchMetrics();
+        positionsStore.fetchPositions();
+    });
 
-  wsClient.on("position:closed", (data) => {
-    const closed = data as { conditionId?: string };
-    if (closed?.conditionId) {
-      positionsStore.handlePositionClosed(closed.conditionId);
-      metricsStore.fetchMetrics();
+    wsClient.on("position:updated", (pos) => {
+        positionsStore.handlePositionUpdated(pos as OpenPosition);
+        metricsStore.fetchMetrics();
+    });
+
+    wsClient.on("position:closed", (data) => {
+        const closed = data as { conditionId?: string };
+        if (closed?.conditionId) {
+            positionsStore.handlePositionClosed(closed.conditionId);
+            positionsStore.fetchClosedPositions();
+            targetsStore.fetchTargets();
+            last24hStore.loadInitial();
+            metricsStore.fetchMetrics();
+        }
+    });
+
+    wsClient.on("target:created", () => {
+        targetsStore.fetchTargets();
+        metricsStore.fetchMetrics();
+    });
+
+    wsClient.on("target:updated", (target) => {
+        targetsStore.handleTargetUpdated(target as TargetTrader);
+    });
+
+    wsClient.on("target:deleted", () => {
+        targetsStore.fetchTargets();
+        metricsStore.fetchMetrics();
+    });
+
+    wsClient.on("config:updated", (config) => {
+        configStore.handleConfigUpdated(config as RiskConfig);
+    });
+
+    wsClient.on("positions:cleared", () => {
+        positionsStore.fetchPositions();
+        metricsStore.fetchMetrics();
+    });
+
+    wsClient.on("metrics:updated", () => {
+        metricsStore.fetchMetrics();
+    });
+
+    wsClient.on("simulation:reset", () => {
+        metricsStore.fetchMetrics();
+        positionsStore.fetchPositions();
+        tradesStore.fetchTrades(1, 30);
+    });
+
+    wsClient.on("connected", () => {
+        metricsStore.fetchMetrics();
+        positionsStore.fetchPositions();
+    });
+});
+
+onBeforeUnmount(() => {
+    if (typeof window !== "undefined") {
+        window.removeEventListener("hashchange", syncTabFromHash);
     }
-  });
-
-  wsClient.on("target:updated", (target) => {
-    targetsStore.handleTargetUpdated(target as TargetTrader);
-  });
-
-  wsClient.on("config:updated", (config) => {
-    configStore.handleConfigUpdated(config as RiskConfig & { isBotRunning: boolean });
-  });
-
-  wsClient.on("simulation:reset", () => {
-    metricsStore.fetchMetrics();
-    positionsStore.fetchPositions();
-    tradesStore.fetchTrades(1, 30);
-  });
-
-  // Polling de secours toutes les 12 secondes
-  setInterval(() => {
-    metricsStore.fetchMetrics();
-    positionsStore.fetchPositions();
-  }, 12000);
 });
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- Navigation Tabs -->
+    <!-- Navigation Tabs Lotso -->
     <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto text-xs font-semibold transition-colors">
-      <!-- 💎 Synthèse Temps Direct -->
+      <!-- 💎 Synthèse Financière -->
       <button
         type="button"
-        @click="currentTab = 'SYNTHESIS'"
+        @click="setTab('SYNTHESIS')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'SYNTHESIS'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>💎</span> Synthèse en Direct
+        <span>💎</span> Synthèse Financière
         <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono font-bold animate-pulse">
           LIVE
         </span>
@@ -108,79 +189,101 @@ onMounted(async () => {
 
       <button
         type="button"
-        @click="currentTab = 'OVERVIEW'"
+        @click="setTab('OVERVIEW')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'OVERVIEW'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>📊</span> Vue d'Ensemble & PnL
+        <span>📊</span> Cockpit Stratégique
       </button>
 
       <button
         type="button"
-        @click="currentTab = 'TARGETS'"
+        @click="setTab('TARGETS')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'TARGETS'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>🐋</span> Baleines Suivies
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
+        <span>🎯</span> Radars & Cibles
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 font-mono font-bold">
           {{ targetsStore.targets.length }}
         </span>
       </button>
 
       <button
         type="button"
-        @click="currentTab = 'POSITIONS'"
+        @click="setTab('POSITIONS')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
           currentTab === 'POSITIONS'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>📑</span> Positions Ouvertes
+        <span>📑</span> Positions Infiltrées
         <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono">
           {{ positionsStore.positions.length }}
         </span>
       </button>
 
+      <!-- 📜 Journal Clôturé (Défilement Infini) -->
       <button
         type="button"
-        @click="currentTab = 'FEED'"
+        @click="setTab('CLOSED_JOURNAL')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
-          currentTab === 'FEED'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+          currentTab === 'CLOSED_JOURNAL'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>⚡</span> Flux d'Activité
+        <span>📜</span> Journal Clôturé
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-mono font-bold">
+          {{ positionsStore.closedPositions.length }}
+        </span>
       </button>
 
       <button
         type="button"
-        @click="currentTab = 'RISK'"
+        @click="setTab('FEED')"
         :class="[
           'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
-          currentTab === 'RISK'
-            ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold'
+          currentTab === 'FEED'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
             : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
         ]"
       >
-        <span>⚙️</span> Gestion du Risque
+        <span>⚡</span> Journal Furtif
+      </button>
+
+      <button
+        type="button"
+        @click="setTab('RISK')"
+        :class="[
+          'px-4 py-2 rounded-xl transition flex items-center gap-2 shrink-0 cursor-pointer',
+          currentTab === 'RISK'
+            ? 'bg-rose-600/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40'
+        ]"
+      >
+        <span>⚙️</span> Protocole & Risque
       </button>
     </div>
 
     <!-- Contenu Dynamique par Onglet -->
     <div v-if="currentTab === 'SYNTHESIS'">
-      <FinancialSynthesisView />
+      <FinancialSynthesisView @navigate="(tab) => setTab(tab)" />
+    </div>
+
+    <!-- 📜 JOURNAL EXHAUSTIF DES POSITIONS CLÔTURÉES -->
+    <div v-else-if="currentTab === 'CLOSED_JOURNAL'">
+      <ClosedPositionsJournalView @navigate="(tab) => setTab(tab)" />
     </div>
 
     <!-- 📊 VUE D'ENSEMBLE & PNL (Executive Cockpit) -->
@@ -193,27 +296,27 @@ onMounted(async () => {
 
       <!-- 3. Cockpit Opérationnel Bipolaire (Positions Actives 50% | Flux Live 50%) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <!-- Volet Gauche : Aperçu des Positions Actives Prioritaires -->
+        <!-- Volet Gauche : Aperçu des Positions Infiltrées Prioritaires -->
         <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-6 shadow-xs space-y-4 transition-colors">
           <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
               <div class="flex items-center gap-2">
                 <span class="text-xl">📑</span>
                 <h3 class="text-base font-bold text-slate-900 dark:text-white">
-                  Positions Ouvertes Prioritaires
+                  Positions Sous Surveillance (Lotso)
                 </h3>
-                <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono font-bold">
+                <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono font-bold">
                   {{ positionsStore.positions.length }}
                 </span>
               </div>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Paiement garanti de 1,00 $ par part gagnante à l'échéance officielle
+                Acquisitions sous les radars • Rachat garanti 1,00 $ par part à l'échéance Polymarket
               </p>
             </div>
 
             <button
               type="button"
-              @click="currentTab = 'POSITIONS'"
+              @click="setTab('POSITIONS')"
               class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 group cursor-pointer"
             >
               <span>Voir tout</span>
@@ -224,7 +327,7 @@ onMounted(async () => {
           <!-- List of up to 4 positions -->
           <div class="space-y-3">
             <div
-              v-for="position in positionsStore.positions.slice(0, 4)"
+              v-for="position in positionsStore.openPositionsSortedByExpiry.slice(0, 4)"
               :key="position.id"
               class="bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/[0.12] rounded-xl p-3.5 space-y-2.5 transition"
             >
@@ -278,7 +381,7 @@ onMounted(async () => {
             </span>
             <button
               type="button"
-              @click="currentTab = 'POSITIONS'"
+              @click="setTab('POSITIONS')"
               class="px-3 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-semibold transition cursor-pointer"
             >
               Gérer les {{ positionsStore.positions.length }} positions →

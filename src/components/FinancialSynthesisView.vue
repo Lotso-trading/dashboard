@@ -1,68 +1,165 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
+import { calculatePositionsSummary, filterPositionsLast24h } from "../utils/positions-summary.ts";
+import Last24hSummarySection from "./Last24hSummarySection.vue";
+import WalletAdjustmentModal from "./WalletAdjustmentModal.vue";
 
+const emit = defineEmits<(e: "navigate", tab: "CLOSED_JOURNAL" | "POSITIONS") => void>();
+
+const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 
-const initialCapitalUsdc = 1000.0;
-const lastSyncTime = ref(
-  new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+const selectedPeriod = ref<"24H" | "ALL">("24H");
+
+const positions24h = computed(() => filterPositionsLast24h(positionsStore.closedPositions));
+const summary24h = computed(() => calculatePositionsSummary(positions24h.value));
+
+const displayedClosedSummary = computed(() => {
+    if (selectedPeriod.value === "24H") {
+        return {
+            count: positions24h.value.length,
+            winsCount: summary24h.value.winCount,
+            lossesCount: summary24h.value.lossCount,
+            winRatePercent: summary24h.value.winRate,
+            roiClosedPercent: summary24h.value.roiPercent,
+            totalInvestedClosedUsdc: summary24h.value.totalInvested,
+            totalSettledPayoutUsdc: summary24h.value.totalPayout,
+            totalRealizedPnlUsdc: summary24h.value.netPnl,
+        };
+    }
+    return {
+        count: positionsStore.closedPositions.length,
+        winsCount: positionsStore.winsCount,
+        lossesCount: positionsStore.lossesCount,
+        winRatePercent: positionsStore.winRatePercent,
+        roiClosedPercent: positionsStore.roiClosedPercent,
+        totalInvestedClosedUsdc: positionsStore.totalInvestedClosedUsdc,
+        totalSettledPayoutUsdc: positionsStore.totalSettledPayoutUsdc,
+        totalRealizedPnlUsdc: positionsStore.totalRealizedPnlUsdc,
+    };
+});
+
+const isWalletModalOpen = ref(false);
+const walletModalAction = ref<"DEPOSIT" | "WITHDRAW">("DEPOSIT");
+const isMaxCashInApplying = ref(false);
+const maxCashInFeedback = ref("");
+
+function openWalletModal(action: "DEPOSIT" | "WITHDRAW"): void {
+    walletModalAction.value = action;
+    isWalletModalOpen.value = true;
+}
+
+async function handleMaxCashIn(): Promise<void> {
+    isMaxCashInApplying.value = true;
+    maxCashInFeedback.value = "";
+    try {
+        await configStore.updateConfig({
+            profitReinvestmentPercent: 0.0,
+        });
+        await positionsStore.triggerSettlement();
+        await metricsStore.fetchMetrics();
+        maxCashInFeedback.value =
+            "🎯 Mode Encaissement Max activé : 100% des bénéfices sanctuarisés dans votre portefeuille !";
+        setTimeout(() => {
+            maxCashInFeedback.value = "";
+        }, 4000);
+    } finally {
+        isMaxCashInApplying.value = false;
+    }
+}
+
+const initialCapitalUsdc = computed<number>((): number => {
+    if (
+        configStore.config?.maxAllocatedCapitalUsdc &&
+        configStore.config.maxAllocatedCapitalUsdc > 0
+    ) {
+        return configStore.config.maxAllocatedCapitalUsdc;
+    }
+    return Number(
+        configStore.config?.simulatedBalanceUsdc ??
+            metricsStore.metrics.initialCapitalUsdc ??
+            1000.0
+    );
+});
+const lastSyncTime = ref<string>(
+    new Date().toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    })
 );
-const filterStatus = ref<"ALL" | "WIN" | "LOSS">("ALL");
 
-const availableCashUsdc = computed(() => {
-  return Math.max(
-    0,
-    initialCapitalUsdc - positionsStore.totalInvestedUsdc + positionsStore.totalRealizedPnlUsdc
-  );
+const availableCashUsdc = computed<number>((): number => {
+    if (typeof metricsStore.metrics.availableCashUsdc === "number") {
+        return metricsStore.metrics.availableCashUsdc;
+    }
+    return Math.max(
+        0,
+        initialCapitalUsdc.value -
+            positionsStore.totalInvestedUsdc +
+            positionsStore.totalRealizedPnlUsdc
+    );
 });
 
-const totalPortfolioValueUsdc = computed(() => {
-  return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
+const totalRealizedPnlUsdc = computed<number>((): number => {
+    if (typeof metricsStore.metrics.realizedPnlUsdc === "number") {
+        return metricsStore.metrics.realizedPnlUsdc;
+    }
+    return positionsStore.totalRealizedPnlUsdc;
 });
 
-const overallRoiPercent = computed(() => {
-  return ((totalPortfolioValueUsdc.value - initialCapitalUsdc) / initialCapitalUsdc) * 100;
+const totalSettledPayoutUsdc = computed<number>((): number => {
+    if (
+        typeof metricsStore.metrics.totalSettledPayoutUsdc === "number" &&
+        metricsStore.metrics.totalSettledPayoutUsdc > 0
+    ) {
+        return metricsStore.metrics.totalSettledPayoutUsdc;
+    }
+    return positionsStore.totalSettledPayoutUsdc;
 });
 
-const maxPotentialNetProfit = computed(() => {
-  return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
+const sanctuarizedProfitUsdc = computed<number>((): number => {
+    const pnl = totalRealizedPnlUsdc.value;
+    if (pnl <= 0) return 0;
+    const protectPercent = 100 - (configStore.config?.profitReinvestmentPercent ?? 50);
+    return (pnl * protectPercent) / 100;
 });
 
-const filteredClosedPositions = computed(() => {
-  if (filterStatus.value === "WIN") {
-    return positionsStore.closedPositions.filter((p) => p.closeReason === "RESOLVED_WIN");
-  }
-  if (filterStatus.value === "LOSS") {
-    return positionsStore.closedPositions.filter((p) => p.closeReason === "RESOLVED_LOSS");
-  }
-  return positionsStore.closedPositions;
+const reinvestedProfitUsdc = computed<number>((): number => {
+    const pnl = totalRealizedPnlUsdc.value;
+    if (pnl <= 0) return 0;
+    const reinvestPercent = configStore.config?.profitReinvestmentPercent ?? 50;
+    return (pnl * reinvestPercent) / 100;
+});
+
+const totalPortfolioValueUsdc = computed<number>((): number => {
+    return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
+});
+
+const overallRoiPercent = computed<number>((): number => {
+    if (initialCapitalUsdc.value <= 0) return 0;
+    return (
+        ((totalPortfolioValueUsdc.value - initialCapitalUsdc.value) / initialCapitalUsdc.value) *
+        100
+    );
+});
+
+const maxPotentialNetProfit = computed<number>((): number => {
+    return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
 });
 
 async function refreshData(): Promise<void> {
-  await Promise.all([
-    metricsStore.fetchMetrics(),
-    positionsStore.fetchPositions(),
-    positionsStore.fetchClosedPositions(),
-    positionsStore.triggerSettlement(),
-  ]);
-  lastSyncTime.value = new Date().toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function formatDate(timestamp?: number): string {
-  if (!timestamp) return "—";
-  return new Date(timestamp).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    await positionsStore.triggerSettlement();
+    await metricsStore.fetchMetrics();
+    lastSyncTime.value = new Date().toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
 }
 </script>
 
@@ -74,7 +171,7 @@ function formatDate(timestamp?: number): string {
         <div class="flex items-center gap-2.5">
           <span class="text-2xl">💎</span>
           <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
-            Bilan Financier & Synthèse Temps Direct
+            Bilan Financier & Synthèse Lotso
           </h2>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
             <span class="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
@@ -82,16 +179,27 @@ function formatDate(timestamp?: number): string {
           </span>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Grand livre comptable automatisé, résolutions d'oracles Polymarket CLOB et valorisation instantanée • Mis à jour à {{ lastSyncTime }}
+          Grand livre comptable automatisé, résolutions d'oracles Polymarket CLOB et valorisation instantanée de Lotso • Mis à jour à {{ lastSyncTime }}
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button
+          type="button"
+          @click="handleMaxCashIn"
+          :disabled="isMaxCashInApplying"
+          class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          title="Verrouille 100% des bénéfices futurs et règle les marchés en attente pour encaisser un maximum de cash"
+        >
+          <span :class="{ 'animate-spin': isMaxCashInApplying }">🎯</span>
+          {{ isMaxCashInApplying ? 'Sécurisation...' : 'Encaisser un max (100% sécurisé)' }}
+        </button>
+
         <button
           type="button"
           @click="refreshData"
           :disabled="positionsStore.isSettling"
-          class="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-blue-400 dark:hover:border-blue-500/40 shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+          class="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-rose-400 dark:hover:border-rose-500/40 shadow-xs transition-all flex items-center gap-2 cursor-pointer"
         >
           <span :class="{ 'animate-spin': positionsStore.isSettling }">🔄</span>
           {{ positionsStore.isSettling ? 'Vérification...' : 'Actualiser & Encaisser' }}
@@ -99,11 +207,19 @@ function formatDate(timestamp?: number): string {
       </div>
     </div>
 
-    <!-- 1. Le Grand Livre Financier (Base 1 000 $ initial) -->
+    <!-- Feedback Encaisser un Max -->
+    <div
+      v-if="maxCashInFeedback"
+      class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-fadeIn"
+    >
+      <span>🛡️</span> {{ maxCashInFeedback }}
+    </div>
+
+    <!-- 1. Le Grand Livre Financier -->
     <div class="space-y-3">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2">
-          <span>🏛️</span> Grand Livre du Portefeuille (Base 1 000,00 $ Initial)
+          <span>🏛️</span> Grand Livre Financier Lotso (Base ${{ initialCapitalUsdc.toFixed(2) }} Initial)
         </h3>
         <span class="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400">
           ROI Global : {{ overallRoiPercent >= 0 ? '+' : '' }}{{ overallRoiPercent.toFixed(1) }} %
@@ -112,24 +228,26 @@ function formatDate(timestamp?: number): string {
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- 1. Cash Disponible Immédiat -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs hover:border-emerald-500/40 transition-all">
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Cash Disponible Immédiat</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-              LIBRE
-            </span>
-          </div>
-          <div class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
-            ${{ availableCashUsdc.toFixed(2) }}
-          </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Solde disponible pour répliquer de nouveaux signaux de baleines.
-          </p>
-          <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div
-              class="bg-emerald-500 h-full rounded-full transition-all duration-500"
-              :style="{ width: `${Math.min(100, (availableCashUsdc / totalPortfolioValueUsdc) * 100)}%` }"
-            ></div>
+        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+              <span class="font-medium">Cash Disponible Immédiat</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                LIBRE
+              </span>
+            </div>
+            <div class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
+              ${{ availableCashUsdc.toFixed(2) }}
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              Solde disponible pour répliquer de nouveaux signaux de baleines.
+            </p>
+            <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div
+                class="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                :style="{ width: `${Math.min(100, (availableCashUsdc / totalPortfolioValueUsdc) * 100)}%` }"
+              ></div>
+            </div>
           </div>
         </div>
 
@@ -196,22 +314,38 @@ function formatDate(timestamp?: number): string {
           </div>
         </div>
 
-        <!-- 5. Bénéfice Net Réalisé Encaissé -->
+        <!-- 5. Bénéfices Encaissés -->
         <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs hover:border-emerald-500/40 transition-all">
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Bénéfice Net Réalisé (Encaissé)</span>
+            <span class="font-medium">Bénéfices Encaissés</span>
             <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-              SÉCURISÉ
+              PORTFOLIO
             </span>
           </div>
           <div class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
-            +${{ positionsStore.totalRealizedPnlUsdc.toFixed(2) }}
+            +${{ totalRealizedPnlUsdc.toFixed(2) }}
           </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Bénéfice net définitivement racheté par Polymarket suite aux résolutions.
-          </p>
-          <div class="mt-3 text-[11px] font-mono text-slate-500 dark:text-slate-400">
-            Total Payouts rachetés : <strong class="text-slate-900 dark:text-white">${{ positionsStore.totalSettledPayoutUsdc.toFixed(2) }}</strong>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 space-y-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
+                🛡️ Sanctuarisé ({{ 100 - (configStore.config?.profitReinvestmentPercent ?? 50) }}%) :
+              </span>
+              <strong class="font-mono text-emerald-600 dark:text-emerald-400">
+                +${{ sanctuarizedProfitUsdc.toFixed(2) }}
+              </strong>
+            </div>
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-blue-600 dark:text-blue-400 font-semibold">
+                🔄 Réinvesti ({{ configStore.config?.profitReinvestmentPercent ?? 50 }}%) :
+              </span>
+              <strong class="font-mono text-blue-600 dark:text-blue-400">
+                +${{ reinvestedProfitUsdc.toFixed(2) }}
+              </strong>
+            </div>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[11px] font-mono text-slate-500 dark:text-slate-400 flex items-center justify-between">
+            <span>Total Payouts rachetés :</span>
+            <strong class="text-slate-900 dark:text-white">${{ totalSettledPayoutUsdc.toFixed(2) }}</strong>
           </div>
         </div>
 
@@ -236,26 +370,64 @@ function formatDate(timestamp?: number): string {
       </div>
     </div>
 
-    <!-- 2. Scoreboard des Clôtures & Résolutions (19 marchés) -->
+    <!-- 2. Scoreboard des Clôtures & Résolutions -->
     <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-6 shadow-xs transition-colors">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <span>🏆</span> Bilan des {{ positionsStore.closedPositions.length }} Marchés Clôturés & Résolus
-          </h3>
+          <div class="flex items-center gap-2">
+            <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>🏆</span> Bilan des {{ displayedClosedSummary.count }} Marchés Clôturés & Résolus {{ selectedPeriod === '24H' ? '(24h)' : '(Historique)' }}
+            </h3>
+            <span
+              v-if="selectedPeriod === '24H'"
+              class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold border border-emerald-500/20"
+            >
+              DERNIÈRES 24H
+            </span>
+          </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Validation par oracle officiel Polymarket CLOB • Payout à 1,00 $ USDC pour chaque part gagnante
+            Validation par oracle officiel Polymarket CLOB • Payout à 1,00 $ USDC pour chaque part gagnante {{ selectedPeriod === '24H' ? 'sur les 24 dernières heures' : '' }}
           </p>
         </div>
 
-        <div class="flex items-center gap-4 text-xs font-mono">
-          <div class="flex items-center gap-2">
-            <span class="h-3 w-3 rounded-full bg-emerald-500"></span>
-            <span class="text-slate-700 dark:text-slate-300 font-semibold">{{ positionsStore.winsCount }} Victoires ({{ positionsStore.winRatePercent.toFixed(1) }}%)</span>
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Sélecteur 24h vs Tout -->
+          <div class="inline-flex items-center p-0.5 rounded-lg border bg-slate-100 border-slate-200 dark:bg-slate-950/60 dark:border-slate-800 text-xs shrink-0">
+            <button
+              type="button"
+              @click="selectedPeriod = '24H'"
+              :class="[
+                'px-2.5 py-1 rounded-md transition font-medium cursor-pointer text-[11px] flex items-center gap-1',
+                selectedPeriod === '24H'
+                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ]"
+            >
+              <span>⚡</span> 24h
+            </button>
+            <button
+              type="button"
+              @click="selectedPeriod = 'ALL'"
+              :class="[
+                'px-2.5 py-1 rounded-md transition font-medium cursor-pointer text-[11px] flex items-center gap-1',
+                selectedPeriod === 'ALL'
+                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ]"
+            >
+              <span>🏛️</span> Tout ({{ positionsStore.closedPositions.length }})
+            </button>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="h-3 w-3 rounded-full bg-rose-500"></span>
-            <span class="text-slate-500 dark:text-slate-400">{{ positionsStore.lossesCount }} Défaites</span>
+
+          <div class="flex items-center gap-3 text-xs font-mono">
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              <span class="text-slate-700 dark:text-slate-300 font-semibold">{{ displayedClosedSummary.winsCount }} Victoires ({{ displayedClosedSummary.winRatePercent.toFixed(1) }}%)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-rose-500"></span>
+              <span class="text-slate-500 dark:text-slate-400">{{ displayedClosedSummary.lossesCount }} Défaites</span>
+            </div>
           </div>
         </div>
       </div>
@@ -263,19 +435,26 @@ function formatDate(timestamp?: number): string {
       <!-- Barre de Répartition Victoires / Défaites -->
       <div class="mt-5 space-y-2">
         <div class="flex justify-between text-xs font-mono text-slate-500 dark:text-slate-400">
-          <span>Taux de Réussite : <strong class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">{{ positionsStore.winRatePercent.toFixed(1) }} %</strong></span>
-          <span>ROI Réalisé : <strong class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">+{{ positionsStore.roiClosedPercent.toFixed(1) }} %</strong></span>
+          <span>Taux de Réussite : <strong class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">{{ displayedClosedSummary.winRatePercent.toFixed(1) }} %</strong></span>
+          <span>ROI Réalisé : <strong :class="displayedClosedSummary.roiClosedPercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'" class="font-bold text-sm">{{ displayedClosedSummary.roiClosedPercent >= 0 ? '+' : '' }}{{ displayedClosedSummary.roiClosedPercent.toFixed(1) }} %</strong></span>
         </div>
         <div class="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden flex">
+          <template v-if="displayedClosedSummary.count > 0">
+            <div
+              class="bg-emerald-500 h-full transition-all duration-500"
+              :style="{ width: `${displayedClosedSummary.winRatePercent}%` }"
+              title="Victoires"
+            ></div>
+            <div
+              class="bg-rose-500 h-full transition-all duration-500"
+              :style="{ width: `${100 - displayedClosedSummary.winRatePercent}%` }"
+              title="Défaites"
+            ></div>
+          </template>
           <div
-            class="bg-emerald-500 h-full transition-all duration-500"
-            :style="{ width: `${positionsStore.winRatePercent}%` }"
-            title="Victoires"
-          ></div>
-          <div
-            class="bg-rose-500 h-full transition-all duration-500"
-            :style="{ width: `${100 - positionsStore.winRatePercent}%` }"
-            title="Défaites"
+            v-else
+            class="bg-slate-200 dark:bg-slate-700/60 h-full w-full"
+            title="Aucune position clôturée sur cette période"
           ></div>
         </div>
       </div>
@@ -285,251 +464,44 @@ function formatDate(timestamp?: number): string {
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Mises Engagées</span>
           <span class="text-base font-bold font-mono text-slate-900 dark:text-white">
-            ${{ positionsStore.totalInvestedClosedUsdc.toFixed(2) }}
+            ${{ displayedClosedSummary.totalInvestedClosedUsdc.toFixed(2) }}
           </span>
         </div>
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Total Racheté (Payout)</span>
           <span class="text-base font-bold font-mono text-slate-900 dark:text-white">
-            ${{ positionsStore.totalSettledPayoutUsdc.toFixed(2) }}
+            ${{ displayedClosedSummary.totalSettledPayoutUsdc.toFixed(2) }}
           </span>
         </div>
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Bénéfice Net Réalisé</span>
-          <span class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
-            +${{ positionsStore.totalRealizedPnlUsdc.toFixed(2) }}
+          <span
+            class="text-base font-bold font-mono"
+            :class="displayedClosedSummary.totalRealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+          >
+            {{ displayedClosedSummary.totalRealizedPnlUsdc >= 0 ? '+' : '' }}${{ displayedClosedSummary.totalRealizedPnlUsdc.toFixed(2) }}
           </span>
         </div>
         <div class="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/40">
           <span class="text-slate-500 dark:text-slate-400 block text-[11px]">Rendement sur les Clôtures</span>
-          <span class="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
-            +{{ positionsStore.roiClosedPercent.toFixed(1) }} %
+          <span
+            class="text-base font-bold font-mono"
+            :class="displayedClosedSummary.roiClosedPercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+          >
+            {{ displayedClosedSummary.roiClosedPercent >= 0 ? '+' : '' }}{{ displayedClosedSummary.roiClosedPercent.toFixed(1) }} %
           </span>
         </div>
       </div>
     </div>
 
-    <!-- 3. Vitrine Bento : Les Plus Beaux Gains Encaissés (Hall of Fame) -->
-    <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono flex items-center gap-2">
-          <span>⭐</span> Exemples Marquants de Gains Résolus (Top Victoires)
-        </h3>
-        <span class="text-xs text-slate-500 dark:text-slate-400">Classés par profit net décroissant</span>
-      </div>
+    <!-- 4. Résumé des Dernières 24 Heures -->
+    <Last24hSummarySection :hide-kpis="true" @navigate="(tab) => emit('navigate', tab)" />
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- 🥇 Top 1 : AS Monaco FC -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-amber-500/40 dark:border-amber-500/30 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-          <div class="absolute -right-3 -top-3 text-4xl opacity-15">🥇</div>
-          <div class="flex items-center justify-between text-xs mb-2">
-            <span class="font-bold text-amber-600 dark:text-amber-400 font-mono text-[11px]">TOP 1 GAIN (+284%)</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
-              +70,19 $ NET
-            </span>
-          </div>
-          <h4 class="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-            Will AS Monaco FC win on 2026-11-08?
-          </h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Issue choisie : <strong>NO</strong> (94,92 parts @ 0,26 $)</p>
-          
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-mono">
-            <div>
-              <span class="text-slate-400 block text-[10px]">Mise</span>
-              <span class="text-slate-700 dark:text-slate-300 font-semibold">24,73 $</span>
-            </div>
-            <div class="text-right">
-              <span class="text-slate-400 block text-[10px]">Payout Encaissé</span>
-              <span class="text-emerald-600 dark:text-emerald-400 font-bold">94,92 $ USDC</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 🥈 Top 2 : Club Blooming vs Oriente -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-          <div class="absolute -right-3 -top-3 text-4xl opacity-15">🥈</div>
-          <div class="flex items-center justify-between text-xs mb-2">
-            <span class="font-bold text-slate-600 dark:text-slate-300 font-mono text-[11px]">TOP 2 GAIN (+100%)</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
-              +29,88 $ NET
-            </span>
-          </div>
-          <h4 class="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-            Club Blooming vs. Oriente (1st Half O/U 0.5)
-          </h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Issue choisie : <strong>Under</strong> (59,88 parts @ 0,501 $)</p>
-          
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-mono">
-            <div>
-              <span class="text-slate-400 block text-[10px]">Mise</span>
-              <span class="text-slate-700 dark:text-slate-300 font-semibold">30,00 $</span>
-            </div>
-            <div class="text-right">
-              <span class="text-slate-400 block text-[10px]">Payout Encaissé</span>
-              <span class="text-emerald-600 dark:text-emerald-400 font-bold">59,88 $ USDC</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 🥉 Top 3 : Aarhus GF vs AC Horsens -->
-        <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs relative overflow-hidden">
-          <div class="absolute -right-3 -top-3 text-4xl opacity-15">🥉</div>
-          <div class="flex items-center justify-between text-xs mb-2">
-            <span class="font-bold text-slate-600 dark:text-slate-300 font-mono text-[11px]">TOP 3 GAIN (+100%)</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs">
-              +25,39 $ NET
-            </span>
-          </div>
-          <h4 class="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-            Aarhus GF vs. AC Horsens: O/U 2.5
-          </h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Issue choisie : <strong>Under</strong> (50,89 parts @ 0,501 $)</p>
-          
-          <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs font-mono">
-            <div>
-              <span class="text-slate-400 block text-[10px]">Mise</span>
-              <span class="text-slate-700 dark:text-slate-300 font-semibold">25,50 $</span>
-            </div>
-            <div class="text-right">
-              <span class="text-slate-400 block text-[10px]">Payout Encaissé</span>
-              <span class="text-emerald-600 dark:text-emerald-400 font-bold">50,89 $ USDC</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. Liste Complète des 19 Marchés Résolus (Table Minimaliste) -->
-    <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl overflow-hidden shadow-xs transition-colors">
-      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-            Journal Exhaustif des {{ positionsStore.closedPositions.length }} Positions Clôturées
-          </h4>
-          <p class="text-xs text-slate-500 dark:text-slate-400">
-            Détail des montants investis, cotes d'exécution et profits réalisés
-          </p>
-        </div>
-
-        <!-- Filtres Win / Loss -->
-        <div class="inline-flex items-center p-0.5 rounded-lg border bg-slate-100 border-slate-200 dark:bg-slate-950/60 dark:border-slate-800 text-xs">
-          <button
-            type="button"
-            @click="filterStatus = 'ALL'"
-            :class="[
-              'px-3 py-1 rounded-md transition font-medium cursor-pointer',
-              filterStatus === 'ALL'
-                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
-          >
-            Tous ({{ positionsStore.closedPositions.length }})
-          </button>
-          <button
-            type="button"
-            @click="filterStatus = 'WIN'"
-            :class="[
-              'px-3 py-1 rounded-md transition font-medium cursor-pointer',
-              filterStatus === 'WIN'
-                ? 'bg-white text-emerald-600 shadow-xs dark:bg-slate-800 dark:text-emerald-400 font-semibold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
-          >
-            Victoires ({{ positionsStore.winsCount }})
-          </button>
-          <button
-            type="button"
-            @click="filterStatus = 'LOSS'"
-            :class="[
-              'px-3 py-1 rounded-md transition font-medium cursor-pointer',
-              filterStatus === 'LOSS'
-                ? 'bg-white text-rose-600 shadow-xs dark:bg-slate-800 dark:text-rose-400 font-semibold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
-          >
-            Défaites ({{ positionsStore.lossesCount }})
-          </button>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-              <th class="py-3 px-6">Marché / Événement</th>
-              <th class="py-3 px-4">Issue</th>
-              <th class="py-3 px-4">Parts</th>
-              <th class="py-3 px-4">Mise Engagée</th>
-              <th class="py-3 px-4">Prix Moyen</th>
-              <th class="py-3 px-4">Payout Reçu</th>
-              <th class="py-3 px-4">Gain Net (PnL)</th>
-              <th class="py-3 px-6 text-right">Résultat</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300 font-mono">
-            <tr
-              v-for="pos in filteredClosedPositions"
-              :key="pos.id"
-              class="hover:bg-slate-50/80 dark:hover:bg-slate-800/20 transition"
-            >
-              <td class="py-3.5 px-6 font-sans">
-                <a
-                  :href="`https://polymarket.com/event/${pos.marketSlug}`"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1 flex items-center gap-1.5"
-                >
-                  {{ pos.marketQuestion }}
-                  <span class="text-[10px] text-slate-400">↗</span>
-                </a>
-                <span class="text-[11px] text-slate-400 font-sans block mt-0.5">
-                  Clôturé le {{ formatDate(pos.closedAt) }}
-                </span>
-              </td>
-
-              <td class="py-3.5 px-4 font-sans">
-                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                  {{ pos.outcomeLabel }}
-                </span>
-              </td>
-
-              <td class="py-3.5 px-4 text-slate-900 dark:text-white">
-                {{ pos.totalShares.toFixed(2) }}
-              </td>
-
-              <td class="py-3.5 px-4">
-                ${{ (pos.totalInvestedUsdc || 0).toFixed(2) }}
-              </td>
-
-              <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                ${{ (pos.avgEntryPrice || 0).toFixed(3) }}
-              </td>
-
-              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                ${{ (pos.settledPayoutUsdc || 0).toFixed(2) }}
-              </td>
-
-              <td
-                class="py-3.5 px-4 font-bold"
-                :class="(pos.realizedPnlUsdc ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-              >
-                {{ (pos.realizedPnlUsdc ?? 0) >= 0 ? '+' : '' }}${{ (pos.realizedPnlUsdc ?? 0).toFixed(2) }}
-              </td>
-
-              <td class="py-3.5 px-6 text-right font-sans">
-                <span
-                  class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                  :class="pos.closeReason === 'RESOLVED_WIN'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'"
-                >
-                  {{ pos.closeReason === 'RESOLVED_WIN' ? '🏆 VICTOIRE' : '❌ DÉFAITE' }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <!-- Modale interactive d'Ajout / Retrait de Fonds (Dry-Run) -->
+    <WalletAdjustmentModal
+      v-if="isWalletModalOpen"
+      :initial-action="walletModalAction"
+      @close="isWalletModalOpen = false"
+    />
   </div>
 </template>

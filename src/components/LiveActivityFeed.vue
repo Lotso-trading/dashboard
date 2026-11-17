@@ -9,46 +9,52 @@ const activeFilter = ref<string>("ALL");
 const scrollContainer = ref<HTMLElement | null>(null);
 
 function getWhaleName(address: string): string {
-  const target = targetsStore.targets.find(
-    (t) => t.address.toLowerCase() === address.toLowerCase()
-  );
-  return target ? target.alias : `${address.slice(0, 8)}...`;
+    const target = targetsStore.targets.find(
+        (t) => t.address.toLowerCase() === address.toLowerCase()
+    );
+    return target ? target.alias : `${address.slice(0, 8)}...`;
 }
 
 function getSideBadge(side: string, status: string) {
-  if (status === "REJECTED") {
-    return { label: "REJETÉ", class: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
-  }
-  if (side === "BUY") {
-    return { label: "ACHAT", class: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
-  }
-  return { label: "VENTE (SORTIE ALL)", class: "bg-rose-500/15 text-rose-400 border-rose-500/30" };
+    if (status === "REJECTED") {
+        return { label: "REJETÉ", class: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
+    }
+    if (side === "BUY") {
+        return {
+            label: "ACHAT",
+            class: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+        };
+    }
+    return {
+        label: "VENTE (SORTIE ALL)",
+        class: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+    };
 }
 
 function formatDate(timestamp: number): string {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const d = new Date(timestamp);
+    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 async function setFilter(filter: string) {
-  activeFilter.value = filter;
-  await tradesStore.loadInitialTrades(filter);
-  if (scrollContainer.value) {
-    scrollContainer.value.scrollTop = 0;
-  }
+    activeFilter.value = filter;
+    await tradesStore.loadInitialTrades(filter);
+    if (scrollContainer.value) {
+        scrollContainer.value.scrollTop = 0;
+    }
 }
 
 function handleScroll(e: Event) {
-  const target = e.target as HTMLElement;
-  if (!target) return;
-  const threshold = 100;
-  if (target.scrollTop + target.clientHeight >= target.scrollHeight - threshold) {
-    tradesStore.loadMoreTrades();
-  }
+    const target = e.target as HTMLElement;
+    if (!target) return;
+    const threshold = 100;
+    if (target.scrollTop + target.clientHeight >= target.scrollHeight - threshold) {
+        tradesStore.loadMoreTrades();
+    }
 }
 
 onMounted(async () => {
-  await tradesStore.loadInitialTrades("ALL");
+    await tradesStore.loadInitialTrades("ALL");
 });
 </script>
 
@@ -58,10 +64,10 @@ onMounted(async () => {
     <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <span>⚡</span> Flux d'Activité en Direct
+          <span>⚡</span> Journal d'Activité Furtif (Lotso)
         </h3>
         <p class="text-xs text-slate-500 dark:text-slate-400">
-          Journal continu des transactions captées, exécutées ou bloquées (scroll infini)
+          Flux temps réel des signaux captés, réplications exécutées et filtrages anti-détection
         </p>
       </div>
 
@@ -183,8 +189,8 @@ onMounted(async () => {
 
       <!-- Empty State -->
       <div v-if="tradesStore.trades.length === 0 && !tradesStore.isLoading" class="text-center py-12 text-slate-400 text-xs">
-        <p class="font-medium text-slate-600 dark:text-slate-300">Aucune activité enregistrée pour le moment</p>
-        <p class="text-slate-400 dark:text-slate-500 mt-1">Le moteur de détection écoute en continu les cibles sélectionnées.</p>
+        <p class="font-medium text-slate-600 dark:text-slate-300">Aucune activité détectée sous les radars pour l'instant</p>
+        <p class="text-slate-400 dark:text-slate-500 mt-1">Lotso surveille les portefeuilles cibles en tâche de fond.</p>
       </div>
     </div>
   </div>

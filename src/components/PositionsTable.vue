@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
+import { getPolymarketUrl } from "../utils/polymarket-url.ts";
 
 const positionsStore = usePositionsStore();
 const activeTab = ref<"OPEN" | "CLOSED">("OPEN");
@@ -9,136 +10,178 @@ const showExplainer = ref(false);
 const settlementMessage = ref<string | null>(null);
 
 onMounted(() => {
-  positionsStore.fetchPositions();
-  positionsStore.fetchClosedPositions();
+    positionsStore.fetchPositions();
+    positionsStore.fetchClosedPositions();
 });
 
 async function handleSettlement() {
-  const res = await positionsStore.triggerSettlement();
-  settlementMessage.value = res.message;
-  setTimeout(() => {
-    settlementMessage.value = null;
-  }, 5000);
+    const res = await positionsStore.triggerSettlement();
+    settlementMessage.value = res.message;
+    setTimeout(() => {
+        settlementMessage.value = null;
+    }, 5000);
 }
 
 function getMarketUrl(position: {
-  marketSlug?: string;
-  marketQuestion?: string;
-  conditionId?: string;
+    eventSlug?: string;
+    marketSlug?: string;
+    marketQuestion?: string;
+    conditionId?: string;
 }): string {
-  if (
-    position.marketSlug &&
-    position.marketSlug !== "market" &&
-    position.marketSlug !== "polygon-onchain" &&
-    position.marketSlug !== "polymarket-market"
-  ) {
-    return `https://polymarket.com/event/${position.marketSlug}`;
-  }
-  if (
-    position.marketQuestion &&
-    position.marketQuestion !== "Polymarket Question" &&
-    position.marketQuestion !== "Question inconnue"
-  ) {
-    return `https://polymarket.com/search?q=${encodeURIComponent(position.marketQuestion)}`;
-  }
-  if (position.conditionId && position.conditionId !== "0x") {
-    return `https://polymarket.com/search?q=${encodeURIComponent(position.conditionId)}`;
-  }
-  return "https://polymarket.com";
+    return getPolymarketUrl(position);
 }
 
 function formatLocalDate(isoDate?: string): string {
-  if (!isoDate) return "Date indéterminée";
-  try {
-    const date = new Date(isoDate);
-    if (Number.isNaN(date.getTime())) return "Date indéterminée";
+    if (!isoDate) return "Synchronisation date...";
+    try {
+        const date = new Date(isoDate);
+        if (Number.isNaN(date.getTime())) return "Synchronisation date...";
 
-    return date.toLocaleDateString("fr-FR", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "Date indéterminée";
-  }
+        return date.toLocaleDateString("fr-FR", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } catch {
+        return "Synchronisation date...";
+    }
 }
 
 function formatUtcDate(isoDate?: string): string {
-  if (!isoDate) return "";
-  try {
-    const d = new Date(isoDate);
-    if (Number.isNaN(d.getTime())) return "";
-    return `${d.toISOString().replace("T", " ").substring(0, 16)} UTC`;
-  } catch {
-    return "";
-  }
+    if (!isoDate) return "";
+    try {
+        const d = new Date(isoDate);
+        if (Number.isNaN(d.getTime())) return "";
+        return `${d.toISOString().replace("T", " ").substring(0, 16)} UTC`;
+    } catch {
+        return "";
+    }
 }
 
 function getRelativeTime(isoDate?: string): string {
-  if (!isoDate) return "";
-  try {
-    const targetTime = new Date(isoDate).getTime();
-    if (Number.isNaN(targetTime)) return "";
-    const now = Date.now();
-    const diffMs = targetTime - now;
+    if (!isoDate) return "";
+    try {
+        const targetTime = new Date(isoDate).getTime();
+        if (Number.isNaN(targetTime)) return "";
+        const now = Date.now();
+        const diffMs = targetTime - now;
 
-    if (diffMs <= 0) {
-      return "⌛ Clôture / Résolution";
-    }
+        if (diffMs <= 0) {
+            return "⌛ En attente de résultat oracle";
+        }
 
-    const diffMinutes = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+        const diffMinutes = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMinutes < 60) {
-      return `⏳ Dans ${Math.max(1, diffMinutes)} min`;
+        if (diffMinutes < 60) {
+            return `⏳ Dans ${Math.max(1, diffMinutes)} min`;
+        }
+        if (diffHours < 24) {
+            return `⏳ Dans ${diffHours} h`;
+        }
+        if (diffDays === 1) {
+            return "⏳ Demain";
+        }
+        if (diffDays < 30) {
+            return `⏳ Dans ${diffDays} jours`;
+        }
+        const diffMonths = Math.floor(diffDays / 30.4);
+        return `⏳ Dans ${diffMonths} mois`;
+    } catch {
+        return "";
     }
-    if (diffHours < 24) {
-      return `⏳ Dans ${diffHours} h`;
-    }
-    if (diffDays === 1) {
-      return "⏳ Demain";
-    }
-    if (diffDays < 30) {
-      return `⏳ Dans ${diffDays} jours`;
-    }
-    const diffMonths = Math.floor(diffDays / 30.4);
-    return `⏳ Dans ${diffMonths} mois`;
-  } catch {
-    return "";
-  }
 }
 
 function getExpiryBadgeClass(isoDate?: string): string {
-  if (!isoDate)
-    return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
-  try {
-    const targetTime = new Date(isoDate).getTime();
-    if (Number.isNaN(targetTime))
-      return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
-    const diffMs = targetTime - Date.now();
-    const diffDays = diffMs / 86400000;
+    if (!isoDate)
+        return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
+    try {
+        const targetTime = new Date(isoDate).getTime();
+        if (Number.isNaN(targetTime))
+            return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
+        const diffMs = targetTime - Date.now();
+        const diffDays = diffMs / 86400000;
 
-    if (diffMs <= 0) {
-      return "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/40";
+        if (diffMs <= 0) {
+            return "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/40";
+        }
+        if (diffDays <= 2) {
+            return "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40";
+        }
+        if (diffDays <= 7) {
+            return "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/40";
+        }
+        return "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60";
+    } catch {
+        return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
     }
-    if (diffDays <= 2) {
-      return "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40";
-    }
-    if (diffDays <= 7) {
-      return "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/40";
-    }
-    return "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60";
-  } catch {
-    return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
-  }
 }
 
 const netPotentialProfitUsdc = computed(() => {
-  return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
+    return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
 });
+
+export type SortOption =
+    | "EXPIRY_ASC"
+    | "EXPIRY_DESC"
+    | "INVESTED_DESC"
+    | "PAYOUT_DESC"
+    | "OPENED_DESC";
+
+const sortOption = ref<SortOption>("EXPIRY_ASC");
+
+function getEndDateTimestamp(isoDate?: string): number {
+    if (!isoDate) return Number.POSITIVE_INFINITY;
+    const time = new Date(isoDate).getTime();
+    return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+}
+
+const sortedOpenPositions = computed(() => {
+    const list = [...positionsStore.positions];
+
+    return list.sort((a, b) => {
+        switch (sortOption.value) {
+            case "EXPIRY_ASC": {
+                const timeA = getEndDateTimestamp(a.endDate);
+                const timeB = getEndDateTimestamp(b.endDate);
+                if (timeA !== timeB) return timeA - timeB;
+                return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+            }
+            case "EXPIRY_DESC": {
+                const timeA = getEndDateTimestamp(a.endDate);
+                const timeB = getEndDateTimestamp(b.endDate);
+                if (timeA === Number.POSITIVE_INFINITY && timeB === Number.POSITIVE_INFINITY)
+                    return 0;
+                if (timeA === Number.POSITIVE_INFINITY) return 1;
+                if (timeB === Number.POSITIVE_INFINITY) return -1;
+                if (timeA !== timeB) return timeB - timeA;
+                return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+            }
+            case "INVESTED_DESC":
+                return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+            case "PAYOUT_DESC": {
+                const profitA = Math.max(0, (a.totalShares || 0) - (a.totalInvestedUsdc || 0));
+                const profitB = Math.max(0, (b.totalShares || 0) - (b.totalInvestedUsdc || 0));
+                return profitB - profitA;
+            }
+            case "OPENED_DESC":
+                return (b.openedAt || 0) - (a.openedAt || 0);
+            default:
+                return 0;
+        }
+    });
+});
+
+function toggleExpirySort() {
+    if (sortOption.value === "EXPIRY_ASC") {
+        sortOption.value = "EXPIRY_DESC";
+    } else {
+        sortOption.value = "EXPIRY_ASC";
+    }
+}
 </script>
 
 <template>
@@ -149,14 +192,14 @@ const netPotentialProfitUsdc = computed(() => {
         <div class="flex items-center gap-2.5">
           <span class="text-xl">📑</span>
           <h3 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-            Positions & Payouts Polymarket
+            Positions & Infiltrations Ouvertes
           </h3>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium font-mono">
-            Pro Engine
+          <span class="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-medium font-mono">
+            Lotso Stealth
           </span>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Suivi haute précision du capital, échéances en heure locale et encaissement garanti à 1,00 $
+          Suivi temps réel des parts acquises sous les radars et encaissement officiel garanti à 1,00 $ USDC
         </p>
       </div>
 
@@ -305,41 +348,65 @@ const netPotentialProfitUsdc = computed(() => {
       </div>
     </div>
 
-    <!-- Segmented Tabs (Apple Pill Switcher) -->
-    <div class="flex items-center gap-2 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] p-1 rounded-xl w-fit text-xs font-semibold">
-      <button
-        type="button"
-        @click="activeTab = 'OPEN'"
-        :class="[
-          'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
-          activeTab === 'OPEN'
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-        ]"
-      >
-        <span>🟢</span>
-        <span>Positions Ouvertes</span>
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
-          {{ positionsStore.positions.length }}
-        </span>
-      </button>
+    <!-- Segmented Tabs (Apple Pill Switcher) & Sort Control -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] p-1 rounded-xl w-fit text-xs font-semibold">
+        <button
+          type="button"
+          @click="activeTab = 'OPEN'"
+          :class="[
+            'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
+            activeTab === 'OPEN'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          ]"
+        >
+          <span>🟢</span>
+          <span>Positions Ouvertes</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
+            {{ positionsStore.positions.length }}
+          </span>
+        </button>
 
-      <button
-        type="button"
-        @click="activeTab = 'CLOSED'"
-        :class="[
-          'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
-          activeTab === 'CLOSED'
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-        ]"
-      >
-        <span>🏁</span>
-        <span>Clôturées & Encaissées</span>
-        <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
-          {{ positionsStore.closedPositions.length }}
+        <button
+          type="button"
+          @click="activeTab = 'CLOSED'"
+          :class="[
+            'px-4 py-1.5 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer',
+            activeTab === 'CLOSED'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          ]"
+        >
+          <span>🏁</span>
+          <span>Clôturées & Encaissées</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono font-bold">
+            {{ positionsStore.closedPositions.length }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Sélecteur de Tri pour Positions Ouvertes -->
+      <div v-if="activeTab === 'OPEN'" class="flex items-center gap-2 text-xs">
+        <span class="text-slate-500 dark:text-slate-400 font-medium hidden sm:inline-flex items-center gap-1">
+          <span>↕️</span> Trier par :
         </span>
-      </button>
+        <div class="relative">
+          <select
+            v-model="sortOption"
+            class="bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl px-3 py-1.5 pr-8 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition"
+          >
+            <option value="EXPIRY_ASC">⏳ Échéance : Se termine bientôt</option>
+            <option value="EXPIRY_DESC">📅 Échéance : Se termine plus tard</option>
+            <option value="INVESTED_DESC">💼 Mise engagée (décroissante)</option>
+            <option value="PAYOUT_DESC">🏆 Gain net potentiel (décroissant)</option>
+            <option value="OPENED_DESC">🕒 Plus récentes en premier</option>
+          </select>
+          <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
+            ▼
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- TAB 1 : POSITIONS OUVERTES -->
@@ -347,7 +414,7 @@ const netPotentialProfitUsdc = computed(() => {
       <!-- MODE CARTES BENTO (Apple Cards Layout) -->
       <div v-if="viewMode === 'CARDS'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div
-          v-for="position in positionsStore.positions"
+          v-for="position in sortedOpenPositions"
           :key="position.id"
           class="bg-slate-50/70 dark:bg-white/[0.02] hover:bg-slate-100/70 dark:hover:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.07] hover:border-slate-300 dark:hover:border-white/[0.15] rounded-2xl p-5 space-y-4 transition-all duration-200 flex flex-col justify-between group shadow-xs hover:shadow-md"
         >
@@ -451,7 +518,7 @@ const netPotentialProfitUsdc = computed(() => {
 
         <!-- Empty State -->
         <div
-          v-if="positionsStore.positions.length === 0"
+          v-if="sortedOpenPositions.length === 0"
           class="col-span-full py-16 text-center text-slate-400 border border-dashed border-slate-200 dark:border-white/[0.1] rounded-2xl"
         >
           <div class="text-3xl mb-2">📑</div>
@@ -469,7 +536,20 @@ const netPotentialProfitUsdc = computed(() => {
             <tr class="border-b border-slate-200 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
               <th class="py-3.5 px-6">Marché / Prédiction</th>
               <th class="py-3 px-4">Issue</th>
-              <th class="py-3 px-4">Échéance (🇹🇭 Locale)</th>
+              <th
+                @click="toggleExpirySort"
+                class="py-3 px-4 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 select-none transition group"
+                title="Cliquer pour trier par date d'échéance"
+              >
+                <div class="flex items-center gap-1.5">
+                  <span>Échéance (🇹🇭 Locale)</span>
+                  <span class="text-blue-600 dark:text-blue-400 font-bold text-xs transition-transform">
+                    <template v-if="sortOption === 'EXPIRY_ASC'">↑</template>
+                    <template v-else-if="sortOption === 'EXPIRY_DESC'">↓</template>
+                    <template v-else><span class="opacity-40 group-hover:opacity-100">↕</span></template>
+                  </span>
+                </div>
+              </th>
               <th class="py-3 px-4">Parts & Cote</th>
               <th class="py-3 px-4">Mise Engagée</th>
               <th class="py-3 px-4">Revente Instant</th>
@@ -478,7 +558,7 @@ const netPotentialProfitUsdc = computed(() => {
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-white/[0.04] text-slate-700 dark:text-slate-200">
             <tr
-              v-for="position in positionsStore.positions"
+              v-for="position in sortedOpenPositions"
               :key="position.id"
               class="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition"
             >
@@ -552,7 +632,7 @@ const netPotentialProfitUsdc = computed(() => {
               </td>
             </tr>
 
-            <tr v-if="positionsStore.positions.length === 0">
+            <tr v-if="sortedOpenPositions.length === 0">
               <td colspan="7" class="py-12 text-center text-slate-400 text-xs">
                 Aucune position ouverte actuellement.
               </td>

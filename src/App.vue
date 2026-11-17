@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FooterStatus from "./components/FooterStatus.vue";
 import HeaderNavbar from "./components/HeaderNavbar.vue";
 import DashboardView from "./views/DashboardView.vue";
 </script>
@@ -9,8 +10,6 @@ import DashboardView from "./views/DashboardView.vue";
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
       <DashboardView />
     </main>
-    <footer class="border-t border-slate-200 dark:border-slate-900 py-4 text-center text-xs text-slate-500 dark:text-slate-400 font-mono transition-colors">
-      Copy-Trading Engine • Micro-Services Conteneurisés Deno 2 • Zero Any
-    </footer>
+    <FooterStatus />
   </div>
 </template>
