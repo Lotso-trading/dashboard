@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TargetTrader } from "@polymarket-copy/shared";
+import type { TargetTrader } from "@lotso-trading/shared";
 import { computed, ref } from "vue";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";

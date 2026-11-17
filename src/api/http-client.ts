@@ -8,7 +8,7 @@ import type {
     TargetTrader,
     UpdateRiskConfigInput,
     UpdateTargetInput,
-} from "@polymarket-copy/shared";
+} from "@lotso-trading/shared";
 import type { ClosedPositionsTotals } from "../utils/positions-summary.ts";
 
 export interface GlobalMetrics {

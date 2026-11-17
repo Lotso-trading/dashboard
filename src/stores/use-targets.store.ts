@@ -1,4 +1,4 @@
-import type { AddTargetInput, TargetTrader, UpdateTargetInput } from "@polymarket-copy/shared";
+import type { AddTargetInput, TargetTrader, UpdateTargetInput } from "@lotso-trading/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { api } from "../api/http-client.ts";

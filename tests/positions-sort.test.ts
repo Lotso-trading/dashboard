@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { assertEquals } from "jsr:@std/assert";
-import type { OpenPosition } from "@polymarket-copy/shared";
+import type { OpenPosition } from "@lotso-trading/shared";
 
 function getEndDateTimestamp(isoDate?: string): number {
     if (!isoDate) return Number.POSITIVE_INFINITY;

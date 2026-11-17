@@ -1,4 +1,4 @@
-import type { OpenPosition } from "@polymarket-copy/shared";
+import type { OpenPosition } from "@lotso-trading/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { api } from "../api/http-client.ts";

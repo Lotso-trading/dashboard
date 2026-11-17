@@ -1,4 +1,4 @@
-import type { OpenPosition } from "@polymarket-copy/shared";
+import type { OpenPosition } from "@lotso-trading/shared";
 
 export interface ClosedPositionsTotals {
     count: number;

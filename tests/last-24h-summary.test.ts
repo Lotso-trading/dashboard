@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { assertEquals } from "jsr:@std/assert";
-import type { OpenPosition } from "@polymarket-copy/shared";
+import type { OpenPosition } from "@lotso-trading/shared";
 import { createPinia, setActivePinia } from "pinia";
 import { api } from "../src/api/http-client.ts";
 import { useLast24hSummaryStore } from "../src/stores/use-last-24h-summary.store.ts";

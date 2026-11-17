@@ -1,4 +1,4 @@
-import type { ExecutedTrade } from "@polymarket-copy/shared";
+import type { ExecutedTrade } from "@lotso-trading/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { api } from "../api/http-client.ts";

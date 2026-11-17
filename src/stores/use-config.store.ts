@@ -1,4 +1,4 @@
-import type { RiskConfig, UpdateRiskConfigInput } from "@polymarket-copy/shared";
+import type { RiskConfig, UpdateRiskConfigInput } from "@lotso-trading/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { api } from "../api/http-client.ts";

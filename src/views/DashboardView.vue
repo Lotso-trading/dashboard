@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import type {
-    ExecutedTrade,
-    OpenPosition,
-    RiskConfig,
-    TargetTrader,
-} from "@polymarket-copy/shared";
+import type { ExecutedTrade, OpenPosition, RiskConfig, TargetTrader } from "@lotso-trading/shared";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { wsClient } from "../api/websocket-client.ts";
 import FinancialSynthesisView from "../components/FinancialSynthesisView.vue";
