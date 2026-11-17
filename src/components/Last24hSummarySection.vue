@@ -4,12 +4,12 @@ import { useLast24hSummaryStore } from "../stores/use-last-24h-summary.store.ts"
 import { getPolymarketUrl } from "../utils/polymarket-url.ts";
 
 const props = withDefaults(
-  defineProps<{
-    hideKpis?: boolean;
-  }>(),
-  {
-    hideKpis: false,
-  }
+    defineProps<{
+        hideKpis?: boolean;
+    }>(),
+    {
+        hideKpis: false,
+    }
 );
 
 const emit = defineEmits<(e: "navigate", tab: "CLOSED_JOURNAL") => void>();
@@ -19,57 +19,62 @@ const sentinelEl = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
 function formatTime(timestamp?: number): string {
-  if (!timestamp) return "—";
-  const ms = timestamp < 100_000_000_000 ? timestamp * 1000 : timestamp;
-  return new Date(ms).toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    if (!timestamp) return "—";
+    const ms = timestamp < 100_000_000_000 ? timestamp * 1000 : timestamp;
+    return new Date(ms).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 function formatDate(timestamp?: number): string {
-  if (!timestamp) return "—";
-  const ms = timestamp < 100_000_000_000 ? timestamp * 1000 : timestamp;
-  return new Date(ms).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    if (!timestamp) return "—";
+    const ms = timestamp < 100_000_000_000 ? timestamp * 1000 : timestamp;
+    return new Date(ms).toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 function setupObserver(): void {
-  if (observer) {
-    observer.disconnect();
-    observer = null;
-  }
+    if (observer) {
+        observer.disconnect();
+        observer = null;
+    }
 
-  if (typeof IntersectionObserver !== "undefined" && sentinelEl.value) {
-    observer = new IntersectionObserver(
-      (entries) => {
-        const first = entries[0];
-        if (first?.isIntersecting && store.hasMore && !store.isLoadingMore && !store.isLoading) {
-          store.loadMore();
-        }
-      },
-      {
-        rootMargin: "200px",
-      }
-    );
-    observer.observe(sentinelEl.value);
-  }
+    if (typeof IntersectionObserver !== "undefined" && sentinelEl.value) {
+        observer = new IntersectionObserver(
+            (entries) => {
+                const first = entries[0];
+                if (
+                    first?.isIntersecting &&
+                    store.hasMore &&
+                    !store.isLoadingMore &&
+                    !store.isLoading
+                ) {
+                    store.loadMore();
+                }
+            },
+            {
+                rootMargin: "200px",
+            }
+        );
+        observer.observe(sentinelEl.value);
+    }
 }
 
 onMounted(async () => {
-  await store.loadInitial("24H", "ALL");
-  setupObserver();
+    await store.loadInitial("24H", "ALL");
+    setupObserver();
 });
 
 onBeforeUnmount(() => {
-  if (observer) {
-    observer.disconnect();
-    observer = null;
-  }
+    if (observer) {
+        observer.disconnect();
+        observer = null;
+    }
 });
 </script>
 

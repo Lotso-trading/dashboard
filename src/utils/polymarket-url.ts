@@ -1,4 +1,4 @@
 export {
-  getPolymarketUrl,
-  type PolymarketUrlTarget,
+    getPolymarketUrl,
+    type PolymarketUrlTarget,
 } from "@polymarket-copy/shared";

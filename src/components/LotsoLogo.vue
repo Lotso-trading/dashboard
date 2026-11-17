@@ -1,15 +1,15 @@
 <script setup lang="ts">
 withDefaults(
-  defineProps<{
-    size?: number | string;
-    animated?: boolean;
-    showBadge?: boolean;
-  }>(),
-  {
-    size: 38,
-    animated: true,
-    showBadge: false,
-  }
+    defineProps<{
+        size?: number | string;
+        animated?: boolean;
+        showBadge?: boolean;
+    }>(),
+    {
+        size: 38,
+        animated: true,
+        showBadge: false,
+    }
 );
 </script>
 

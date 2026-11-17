@@ -10,53 +10,53 @@ const sentinelEl = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
 function formatDate(timestamp?: number): string {
-  if (!timestamp) return "—";
-  const ms = timestamp < 100_000_000_000 ? timestamp * 1000 : timestamp;
-  return new Date(ms).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    if (!timestamp) return "—";
+    const ms = timestamp < 100_000_000_000 ? timestamp * 1000 : timestamp;
+    return new Date(ms).toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 async function changeFilter(status: "ALL" | "WIN" | "LOSS"): Promise<void> {
-  await journalStore.loadInitial(status);
+    await journalStore.loadInitial(status);
 }
 
 onMounted(async () => {
-  await journalStore.loadInitial("ALL");
+    await journalStore.loadInitial("ALL");
 
-  if (typeof IntersectionObserver !== "undefined") {
-    observer = new IntersectionObserver(
-      (entries) => {
-        const first = entries[0];
-        if (
-          first?.isIntersecting &&
-          journalStore.hasMore &&
-          !journalStore.isLoadingMore &&
-          !journalStore.isLoading
-        ) {
-          journalStore.loadMore();
+    if (typeof IntersectionObserver !== "undefined") {
+        observer = new IntersectionObserver(
+            (entries) => {
+                const first = entries[0];
+                if (
+                    first?.isIntersecting &&
+                    journalStore.hasMore &&
+                    !journalStore.isLoadingMore &&
+                    !journalStore.isLoading
+                ) {
+                    journalStore.loadMore();
+                }
+            },
+            {
+                rootMargin: "200px",
+            }
+        );
+
+        if (sentinelEl.value) {
+            observer.observe(sentinelEl.value);
         }
-      },
-      {
-        rootMargin: "200px",
-      }
-    );
-
-    if (sentinelEl.value) {
-      observer.observe(sentinelEl.value);
     }
-  }
 });
 
 onBeforeUnmount(() => {
-  if (observer) {
-    observer.disconnect();
-    observer = null;
-  }
+    if (observer) {
+        observer.disconnect();
+        observer = null;
+    }
 });
 </script>
 

@@ -10,176 +10,177 @@ const showExplainer = ref(false);
 const settlementMessage = ref<string | null>(null);
 
 onMounted(() => {
-  positionsStore.fetchPositions();
-  positionsStore.fetchClosedPositions();
+    positionsStore.fetchPositions();
+    positionsStore.fetchClosedPositions();
 });
 
 async function handleSettlement() {
-  const res = await positionsStore.triggerSettlement();
-  settlementMessage.value = res.message;
-  setTimeout(() => {
-    settlementMessage.value = null;
-  }, 5000);
+    const res = await positionsStore.triggerSettlement();
+    settlementMessage.value = res.message;
+    setTimeout(() => {
+        settlementMessage.value = null;
+    }, 5000);
 }
 
 function getMarketUrl(position: {
-  eventSlug?: string;
-  marketSlug?: string;
-  marketQuestion?: string;
-  conditionId?: string;
+    eventSlug?: string;
+    marketSlug?: string;
+    marketQuestion?: string;
+    conditionId?: string;
 }): string {
-  return getPolymarketUrl(position);
+    return getPolymarketUrl(position);
 }
 
 function formatLocalDate(isoDate?: string): string {
-  if (!isoDate) return "Synchronisation date...";
-  try {
-    const date = new Date(isoDate);
-    if (Number.isNaN(date.getTime())) return "Synchronisation date...";
+    if (!isoDate) return "Synchronisation date...";
+    try {
+        const date = new Date(isoDate);
+        if (Number.isNaN(date.getTime())) return "Synchronisation date...";
 
-    return date.toLocaleDateString("fr-FR", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "Synchronisation date...";
-  }
+        return date.toLocaleDateString("fr-FR", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } catch {
+        return "Synchronisation date...";
+    }
 }
 
 function formatUtcDate(isoDate?: string): string {
-  if (!isoDate) return "";
-  try {
-    const d = new Date(isoDate);
-    if (Number.isNaN(d.getTime())) return "";
-    return `${d.toISOString().replace("T", " ").substring(0, 16)} UTC`;
-  } catch {
-    return "";
-  }
+    if (!isoDate) return "";
+    try {
+        const d = new Date(isoDate);
+        if (Number.isNaN(d.getTime())) return "";
+        return `${d.toISOString().replace("T", " ").substring(0, 16)} UTC`;
+    } catch {
+        return "";
+    }
 }
 
 function getRelativeTime(isoDate?: string): string {
-  if (!isoDate) return "";
-  try {
-    const targetTime = new Date(isoDate).getTime();
-    if (Number.isNaN(targetTime)) return "";
-    const now = Date.now();
-    const diffMs = targetTime - now;
+    if (!isoDate) return "";
+    try {
+        const targetTime = new Date(isoDate).getTime();
+        if (Number.isNaN(targetTime)) return "";
+        const now = Date.now();
+        const diffMs = targetTime - now;
 
-    if (diffMs <= 0) {
-      return "⌛ En attente de résultat oracle";
-    }
+        if (diffMs <= 0) {
+            return "⌛ En attente de résultat oracle";
+        }
 
-    const diffMinutes = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+        const diffMinutes = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMinutes < 60) {
-      return `⏳ Dans ${Math.max(1, diffMinutes)} min`;
+        if (diffMinutes < 60) {
+            return `⏳ Dans ${Math.max(1, diffMinutes)} min`;
+        }
+        if (diffHours < 24) {
+            return `⏳ Dans ${diffHours} h`;
+        }
+        if (diffDays === 1) {
+            return "⏳ Demain";
+        }
+        if (diffDays < 30) {
+            return `⏳ Dans ${diffDays} jours`;
+        }
+        const diffMonths = Math.floor(diffDays / 30.4);
+        return `⏳ Dans ${diffMonths} mois`;
+    } catch {
+        return "";
     }
-    if (diffHours < 24) {
-      return `⏳ Dans ${diffHours} h`;
-    }
-    if (diffDays === 1) {
-      return "⏳ Demain";
-    }
-    if (diffDays < 30) {
-      return `⏳ Dans ${diffDays} jours`;
-    }
-    const diffMonths = Math.floor(diffDays / 30.4);
-    return `⏳ Dans ${diffMonths} mois`;
-  } catch {
-    return "";
-  }
 }
 
 function getExpiryBadgeClass(isoDate?: string): string {
-  if (!isoDate)
-    return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
-  try {
-    const targetTime = new Date(isoDate).getTime();
-    if (Number.isNaN(targetTime))
-      return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
-    const diffMs = targetTime - Date.now();
-    const diffDays = diffMs / 86400000;
+    if (!isoDate)
+        return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
+    try {
+        const targetTime = new Date(isoDate).getTime();
+        if (Number.isNaN(targetTime))
+            return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
+        const diffMs = targetTime - Date.now();
+        const diffDays = diffMs / 86400000;
 
-    if (diffMs <= 0) {
-      return "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/40";
+        if (diffMs <= 0) {
+            return "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/40";
+        }
+        if (diffDays <= 2) {
+            return "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40";
+        }
+        if (diffDays <= 7) {
+            return "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/40";
+        }
+        return "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60";
+    } catch {
+        return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
     }
-    if (diffDays <= 2) {
-      return "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/40";
-    }
-    if (diffDays <= 7) {
-      return "bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/40";
-    }
-    return "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60";
-  } catch {
-    return "text-slate-500 bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80";
-  }
 }
 
 const netPotentialProfitUsdc = computed(() => {
-  return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
+    return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
 });
 
 export type SortOption =
-  | "EXPIRY_ASC"
-  | "EXPIRY_DESC"
-  | "INVESTED_DESC"
-  | "PAYOUT_DESC"
-  | "OPENED_DESC";
+    | "EXPIRY_ASC"
+    | "EXPIRY_DESC"
+    | "INVESTED_DESC"
+    | "PAYOUT_DESC"
+    | "OPENED_DESC";
 
 const sortOption = ref<SortOption>("EXPIRY_ASC");
 
 function getEndDateTimestamp(isoDate?: string): number {
-  if (!isoDate) return Number.POSITIVE_INFINITY;
-  const time = new Date(isoDate).getTime();
-  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+    if (!isoDate) return Number.POSITIVE_INFINITY;
+    const time = new Date(isoDate).getTime();
+    return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
 }
 
 const sortedOpenPositions = computed(() => {
-  const list = [...positionsStore.positions];
+    const list = [...positionsStore.positions];
 
-  return list.sort((a, b) => {
-    switch (sortOption.value) {
-      case "EXPIRY_ASC": {
-        const timeA = getEndDateTimestamp(a.endDate);
-        const timeB = getEndDateTimestamp(b.endDate);
-        if (timeA !== timeB) return timeA - timeB;
-        return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
-      }
-      case "EXPIRY_DESC": {
-        const timeA = getEndDateTimestamp(a.endDate);
-        const timeB = getEndDateTimestamp(b.endDate);
-        if (timeA === Number.POSITIVE_INFINITY && timeB === Number.POSITIVE_INFINITY) return 0;
-        if (timeA === Number.POSITIVE_INFINITY) return 1;
-        if (timeB === Number.POSITIVE_INFINITY) return -1;
-        if (timeA !== timeB) return timeB - timeA;
-        return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
-      }
-      case "INVESTED_DESC":
-        return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
-      case "PAYOUT_DESC": {
-        const profitA = Math.max(0, (a.totalShares || 0) - (a.totalInvestedUsdc || 0));
-        const profitB = Math.max(0, (b.totalShares || 0) - (b.totalInvestedUsdc || 0));
-        return profitB - profitA;
-      }
-      case "OPENED_DESC":
-        return (b.openedAt || 0) - (a.openedAt || 0);
-      default:
-        return 0;
-    }
-  });
+    return list.sort((a, b) => {
+        switch (sortOption.value) {
+            case "EXPIRY_ASC": {
+                const timeA = getEndDateTimestamp(a.endDate);
+                const timeB = getEndDateTimestamp(b.endDate);
+                if (timeA !== timeB) return timeA - timeB;
+                return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+            }
+            case "EXPIRY_DESC": {
+                const timeA = getEndDateTimestamp(a.endDate);
+                const timeB = getEndDateTimestamp(b.endDate);
+                if (timeA === Number.POSITIVE_INFINITY && timeB === Number.POSITIVE_INFINITY)
+                    return 0;
+                if (timeA === Number.POSITIVE_INFINITY) return 1;
+                if (timeB === Number.POSITIVE_INFINITY) return -1;
+                if (timeA !== timeB) return timeB - timeA;
+                return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+            }
+            case "INVESTED_DESC":
+                return (b.totalInvestedUsdc || 0) - (a.totalInvestedUsdc || 0);
+            case "PAYOUT_DESC": {
+                const profitA = Math.max(0, (a.totalShares || 0) - (a.totalInvestedUsdc || 0));
+                const profitB = Math.max(0, (b.totalShares || 0) - (b.totalInvestedUsdc || 0));
+                return profitB - profitA;
+            }
+            case "OPENED_DESC":
+                return (b.openedAt || 0) - (a.openedAt || 0);
+            default:
+                return 0;
+        }
+    });
 });
 
 function toggleExpirySort() {
-  if (sortOption.value === "EXPIRY_ASC") {
-    sortOption.value = "EXPIRY_DESC";
-  } else {
-    sortOption.value = "EXPIRY_ASC";
-  }
+    if (sortOption.value === "EXPIRY_ASC") {
+        sortOption.value = "EXPIRY_DESC";
+    } else {
+        sortOption.value = "EXPIRY_ASC";
+    }
 }
 </script>
 

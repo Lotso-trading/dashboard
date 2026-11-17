@@ -13,57 +13,57 @@ const tradesStore = useTradesStore();
 const isResetting = ref(false);
 
 const initialCapitalUsdc = computed(() => {
-  if (
-    configStore.config?.maxAllocatedCapitalUsdc &&
-    configStore.config.maxAllocatedCapitalUsdc > 0
-  ) {
-    return configStore.config.maxAllocatedCapitalUsdc;
-  }
-  return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
+    if (
+        configStore.config?.maxAllocatedCapitalUsdc &&
+        configStore.config.maxAllocatedCapitalUsdc > 0
+    ) {
+        return configStore.config.maxAllocatedCapitalUsdc;
+    }
+    return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
 });
 const availableCashUsdc = computed(() => {
-  return Math.max(
-    0,
-    initialCapitalUsdc.value -
-      positionsStore.totalInvestedUsdc +
-      positionsStore.totalRealizedPnlUsdc
-  );
+    return Math.max(
+        0,
+        initialCapitalUsdc.value -
+            positionsStore.totalInvestedUsdc +
+            positionsStore.totalRealizedPnlUsdc
+    );
 });
 
 const totalPortfolioValueUsdc = computed(() => {
-  return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
+    return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
 });
 
 const overallGainUsdc = computed(() => {
-  return totalPortfolioValueUsdc.value - initialCapitalUsdc.value;
+    return totalPortfolioValueUsdc.value - initialCapitalUsdc.value;
 });
 
 const overallGainPercent = computed(() => {
-  if (initialCapitalUsdc.value <= 0) return 0;
-  return (overallGainUsdc.value / initialCapitalUsdc.value) * 100;
+    if (initialCapitalUsdc.value <= 0) return 0;
+    return (overallGainUsdc.value / initialCapitalUsdc.value) * 100;
 });
 
 const cashPercentage = computed(() => {
-  if (totalPortfolioValueUsdc.value <= 0) return 0;
-  return Math.min(100, (availableCashUsdc.value / totalPortfolioValueUsdc.value) * 100);
+    if (totalPortfolioValueUsdc.value <= 0) return 0;
+    return Math.min(100, (availableCashUsdc.value / totalPortfolioValueUsdc.value) * 100);
 });
 
 async function handleResetSimulation(): Promise<void> {
-  if (
-    !confirm(
-      `Voulez-vous réinitialiser le portefeuille de simulation à ${initialCapitalUsdc.value} $ et purger les positions actuelles ?`
-    )
-  ) {
-    return;
-  }
-  isResetting.value = true;
-  try {
-    await metricsStore.resetSimulation();
-    await positionsStore.fetchPositions();
-    await tradesStore.fetchTrades(1, 30);
-  } finally {
-    isResetting.value = false;
-  }
+    if (
+        !confirm(
+            `Voulez-vous réinitialiser le portefeuille de simulation à ${initialCapitalUsdc.value} $ et purger les positions actuelles ?`
+        )
+    ) {
+        return;
+    }
+    isResetting.value = true;
+    try {
+        await metricsStore.resetSimulation();
+        await positionsStore.fetchPositions();
+        await tradesStore.fetchTrades(1, 30);
+    } finally {
+        isResetting.value = false;
+    }
 }
 </script>
 

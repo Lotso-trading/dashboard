@@ -11,18 +11,18 @@ const isWalletModalOpen = ref(false);
 const walletModalAction = ref<"DEPOSIT" | "WITHDRAW">("DEPOSIT");
 
 function openWalletModal(action: "DEPOSIT" | "WITHDRAW"): void {
-  walletModalAction.value = action;
-  isWalletModalOpen.value = true;
+    walletModalAction.value = action;
+    isWalletModalOpen.value = true;
 }
 
 function setStrategyPreset(preset: "MAX_CASH_IN" | "BALANCED" | "COMPOUND"): void {
-  if (preset === "MAX_CASH_IN") {
-    profitReinvestmentPercent.value = 0;
-  } else if (preset === "BALANCED") {
-    profitReinvestmentPercent.value = 50;
-  } else if (preset === "COMPOUND") {
-    profitReinvestmentPercent.value = 100;
-  }
+    if (preset === "MAX_CASH_IN") {
+        profitReinvestmentPercent.value = 0;
+    } else if (preset === "BALANCED") {
+        profitReinvestmentPercent.value = 50;
+    } else if (preset === "COMPOUND") {
+        profitReinvestmentPercent.value = 100;
+    }
 }
 
 const balancePercent = ref(Math.round((configStore.config?.balancePercentPerTrade ?? 0.03) * 100));
@@ -42,58 +42,60 @@ const saveSuccess = ref(false);
 // Calcul dynamique de simulation en direct sous le slider
 const hypotheticalGain = 50.0;
 const baseCapitalForSimulation = computed(() => {
-  if (maxAllocatedCapital.value && maxAllocatedCapital.value > 0) {
-    return maxAllocatedCapital.value;
-  }
-  return metricsStore.metrics.initialCapitalUsdc || 100.0;
+    if (maxAllocatedCapital.value && maxAllocatedCapital.value > 0) {
+        return maxAllocatedCapital.value;
+    }
+    return metricsStore.metrics.initialCapitalUsdc || 100.0;
 });
 
 const simulatedGainsAllowed = computed(() => {
-  return Math.round(hypotheticalGain * (profitReinvestmentPercent.value / 100) * 100) / 100;
+    return Math.round(hypotheticalGain * (profitReinvestmentPercent.value / 100) * 100) / 100;
 });
 
 const simulatedBotUsableCapital = computed(() => {
-  return baseCapitalForSimulation.value + simulatedGainsAllowed.value;
+    return baseCapitalForSimulation.value + simulatedGainsAllowed.value;
 });
 
 const simulatedSanctuarizedProfit = computed(() => {
-  return Math.round(hypotheticalGain * (1 - profitReinvestmentPercent.value / 100) * 100) / 100;
+    return Math.round(hypotheticalGain * (1 - profitReinvestmentPercent.value / 100) * 100) / 100;
 });
 
 // Impact en direct sur les gains réels existants
 const currentRealizedPnl = computed(() => metricsStore.metrics.realizedPnlUsdc ?? 0);
 const currentRealizedGainsAllowed = computed(() => {
-  if (currentRealizedPnl.value <= 0) return 0;
-  return Math.round(currentRealizedPnl.value * (profitReinvestmentPercent.value / 100) * 100) / 100;
+    if (currentRealizedPnl.value <= 0) return 0;
+    return (
+        Math.round(currentRealizedPnl.value * (profitReinvestmentPercent.value / 100) * 100) / 100
+    );
 });
 const currentRealizedGainsProtected = computed(() => {
-  if (currentRealizedPnl.value <= 0) return 0;
-  return Math.round((currentRealizedPnl.value - currentRealizedGainsAllowed.value) * 100) / 100;
+    if (currentRealizedPnl.value <= 0) return 0;
+    return Math.round((currentRealizedPnl.value - currentRealizedGainsAllowed.value) * 100) / 100;
 });
 
 async function handleSave(): Promise<void> {
-  isSaving.value = true;
-  saveSuccess.value = false;
-  try {
-    await configStore.updateConfig({
-      balancePercentPerTrade: balancePercent.value / 100,
-      maxSlippagePercent: maxSlippage.value,
-      maxCapPerTradeUsdc: maxCap.value,
-      maxExposurePerMarketUsdc: maxExposureMarket.value,
-      maxExposurePerTargetUsdc: maxExposureWhale.value,
-      minCashReserveUsdc: minCashReserve.value,
-      copySellOrders: copySellOrders.value,
-      dryRun: dryRun.value,
-      maxAllocatedCapitalUsdc: maxAllocatedCapital.value,
-      profitReinvestmentPercent: profitReinvestmentPercent.value,
-    });
-    saveSuccess.value = true;
-    setTimeout(() => {
-      saveSuccess.value = false;
-    }, 3000);
-  } finally {
-    isSaving.value = false;
-  }
+    isSaving.value = true;
+    saveSuccess.value = false;
+    try {
+        await configStore.updateConfig({
+            balancePercentPerTrade: balancePercent.value / 100,
+            maxSlippagePercent: maxSlippage.value,
+            maxCapPerTradeUsdc: maxCap.value,
+            maxExposurePerMarketUsdc: maxExposureMarket.value,
+            maxExposurePerTargetUsdc: maxExposureWhale.value,
+            minCashReserveUsdc: minCashReserve.value,
+            copySellOrders: copySellOrders.value,
+            dryRun: dryRun.value,
+            maxAllocatedCapitalUsdc: maxAllocatedCapital.value,
+            profitReinvestmentPercent: profitReinvestmentPercent.value,
+        });
+        saveSuccess.value = true;
+        setTimeout(() => {
+            saveSuccess.value = false;
+        }, 3000);
+    } finally {
+        isSaving.value = false;
+    }
 }
 </script>
 

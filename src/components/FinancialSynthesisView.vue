@@ -19,28 +19,28 @@ const positions24h = computed(() => filterPositionsLast24h(positionsStore.closed
 const summary24h = computed(() => calculatePositionsSummary(positions24h.value));
 
 const displayedClosedSummary = computed(() => {
-  if (selectedPeriod.value === "24H") {
+    if (selectedPeriod.value === "24H") {
+        return {
+            count: positions24h.value.length,
+            winsCount: summary24h.value.winCount,
+            lossesCount: summary24h.value.lossCount,
+            winRatePercent: summary24h.value.winRate,
+            roiClosedPercent: summary24h.value.roiPercent,
+            totalInvestedClosedUsdc: summary24h.value.totalInvested,
+            totalSettledPayoutUsdc: summary24h.value.totalPayout,
+            totalRealizedPnlUsdc: summary24h.value.netPnl,
+        };
+    }
     return {
-      count: positions24h.value.length,
-      winsCount: summary24h.value.winCount,
-      lossesCount: summary24h.value.lossCount,
-      winRatePercent: summary24h.value.winRate,
-      roiClosedPercent: summary24h.value.roiPercent,
-      totalInvestedClosedUsdc: summary24h.value.totalInvested,
-      totalSettledPayoutUsdc: summary24h.value.totalPayout,
-      totalRealizedPnlUsdc: summary24h.value.netPnl,
+        count: positionsStore.closedPositions.length,
+        winsCount: positionsStore.winsCount,
+        lossesCount: positionsStore.lossesCount,
+        winRatePercent: positionsStore.winRatePercent,
+        roiClosedPercent: positionsStore.roiClosedPercent,
+        totalInvestedClosedUsdc: positionsStore.totalInvestedClosedUsdc,
+        totalSettledPayoutUsdc: positionsStore.totalSettledPayoutUsdc,
+        totalRealizedPnlUsdc: positionsStore.totalRealizedPnlUsdc,
     };
-  }
-  return {
-    count: positionsStore.closedPositions.length,
-    winsCount: positionsStore.winsCount,
-    lossesCount: positionsStore.lossesCount,
-    winRatePercent: positionsStore.winRatePercent,
-    roiClosedPercent: positionsStore.roiClosedPercent,
-    totalInvestedClosedUsdc: positionsStore.totalInvestedClosedUsdc,
-    totalSettledPayoutUsdc: positionsStore.totalSettledPayoutUsdc,
-    totalRealizedPnlUsdc: positionsStore.totalRealizedPnlUsdc,
-  };
 });
 
 const isWalletModalOpen = ref(false);
@@ -49,110 +49,117 @@ const isMaxCashInApplying = ref(false);
 const maxCashInFeedback = ref("");
 
 function openWalletModal(action: "DEPOSIT" | "WITHDRAW"): void {
-  walletModalAction.value = action;
-  isWalletModalOpen.value = true;
+    walletModalAction.value = action;
+    isWalletModalOpen.value = true;
 }
 
 async function handleMaxCashIn(): Promise<void> {
-  isMaxCashInApplying.value = true;
-  maxCashInFeedback.value = "";
-  try {
-    await configStore.updateConfig({
-      profitReinvestmentPercent: 0.0,
-    });
-    await positionsStore.triggerSettlement();
-    await metricsStore.fetchMetrics();
-    maxCashInFeedback.value =
-      "🎯 Mode Encaissement Max activé : 100% des bénéfices sanctuarisés dans votre portefeuille !";
-    setTimeout(() => {
-      maxCashInFeedback.value = "";
-    }, 4000);
-  } finally {
-    isMaxCashInApplying.value = false;
-  }
+    isMaxCashInApplying.value = true;
+    maxCashInFeedback.value = "";
+    try {
+        await configStore.updateConfig({
+            profitReinvestmentPercent: 0.0,
+        });
+        await positionsStore.triggerSettlement();
+        await metricsStore.fetchMetrics();
+        maxCashInFeedback.value =
+            "🎯 Mode Encaissement Max activé : 100% des bénéfices sanctuarisés dans votre portefeuille !";
+        setTimeout(() => {
+            maxCashInFeedback.value = "";
+        }, 4000);
+    } finally {
+        isMaxCashInApplying.value = false;
+    }
 }
 
 const initialCapitalUsdc = computed<number>((): number => {
-  if (
-    configStore.config?.maxAllocatedCapitalUsdc &&
-    configStore.config.maxAllocatedCapitalUsdc > 0
-  ) {
-    return configStore.config.maxAllocatedCapitalUsdc;
-  }
-  return Number(
-    configStore.config?.simulatedBalanceUsdc ?? metricsStore.metrics.initialCapitalUsdc ?? 1000.0
-  );
+    if (
+        configStore.config?.maxAllocatedCapitalUsdc &&
+        configStore.config.maxAllocatedCapitalUsdc > 0
+    ) {
+        return configStore.config.maxAllocatedCapitalUsdc;
+    }
+    return Number(
+        configStore.config?.simulatedBalanceUsdc ??
+            metricsStore.metrics.initialCapitalUsdc ??
+            1000.0
+    );
 });
 const lastSyncTime = ref<string>(
-  new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    new Date().toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    })
 );
 
 const availableCashUsdc = computed<number>((): number => {
-  if (typeof metricsStore.metrics.availableCashUsdc === "number") {
-    return metricsStore.metrics.availableCashUsdc;
-  }
-  return Math.max(
-    0,
-    initialCapitalUsdc.value -
-      positionsStore.totalInvestedUsdc +
-      positionsStore.totalRealizedPnlUsdc
-  );
+    if (typeof metricsStore.metrics.availableCashUsdc === "number") {
+        return metricsStore.metrics.availableCashUsdc;
+    }
+    return Math.max(
+        0,
+        initialCapitalUsdc.value -
+            positionsStore.totalInvestedUsdc +
+            positionsStore.totalRealizedPnlUsdc
+    );
 });
 
 const totalRealizedPnlUsdc = computed<number>((): number => {
-  if (typeof metricsStore.metrics.realizedPnlUsdc === "number") {
-    return metricsStore.metrics.realizedPnlUsdc;
-  }
-  return positionsStore.totalRealizedPnlUsdc;
+    if (typeof metricsStore.metrics.realizedPnlUsdc === "number") {
+        return metricsStore.metrics.realizedPnlUsdc;
+    }
+    return positionsStore.totalRealizedPnlUsdc;
 });
 
 const totalSettledPayoutUsdc = computed<number>((): number => {
-  if (
-    typeof metricsStore.metrics.totalSettledPayoutUsdc === "number" &&
-    metricsStore.metrics.totalSettledPayoutUsdc > 0
-  ) {
-    return metricsStore.metrics.totalSettledPayoutUsdc;
-  }
-  return positionsStore.totalSettledPayoutUsdc;
+    if (
+        typeof metricsStore.metrics.totalSettledPayoutUsdc === "number" &&
+        metricsStore.metrics.totalSettledPayoutUsdc > 0
+    ) {
+        return metricsStore.metrics.totalSettledPayoutUsdc;
+    }
+    return positionsStore.totalSettledPayoutUsdc;
 });
 
 const sanctuarizedProfitUsdc = computed<number>((): number => {
-  const pnl = totalRealizedPnlUsdc.value;
-  if (pnl <= 0) return 0;
-  const protectPercent = 100 - (configStore.config?.profitReinvestmentPercent ?? 50);
-  return (pnl * protectPercent) / 100;
+    const pnl = totalRealizedPnlUsdc.value;
+    if (pnl <= 0) return 0;
+    const protectPercent = 100 - (configStore.config?.profitReinvestmentPercent ?? 50);
+    return (pnl * protectPercent) / 100;
 });
 
 const reinvestedProfitUsdc = computed<number>((): number => {
-  const pnl = totalRealizedPnlUsdc.value;
-  if (pnl <= 0) return 0;
-  const reinvestPercent = configStore.config?.profitReinvestmentPercent ?? 50;
-  return (pnl * reinvestPercent) / 100;
+    const pnl = totalRealizedPnlUsdc.value;
+    if (pnl <= 0) return 0;
+    const reinvestPercent = configStore.config?.profitReinvestmentPercent ?? 50;
+    return (pnl * reinvestPercent) / 100;
 });
 
 const totalPortfolioValueUsdc = computed<number>((): number => {
-  return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
+    return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
 });
 
 const overallRoiPercent = computed<number>((): number => {
-  if (initialCapitalUsdc.value <= 0) return 0;
-  return (
-    ((totalPortfolioValueUsdc.value - initialCapitalUsdc.value) / initialCapitalUsdc.value) * 100
-  );
+    if (initialCapitalUsdc.value <= 0) return 0;
+    return (
+        ((totalPortfolioValueUsdc.value - initialCapitalUsdc.value) / initialCapitalUsdc.value) *
+        100
+    );
 });
 
 const maxPotentialNetProfit = computed<number>((): number => {
-  return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
+    return Math.max(0, positionsStore.totalPayoutPotentialUsdc - positionsStore.totalInvestedUsdc);
 });
 
 async function refreshData(): Promise<void> {
-  await positionsStore.triggerSettlement();
-  await metricsStore.fetchMetrics();
-  lastSyncTime.value = new Date().toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+    await positionsStore.triggerSettlement();
+    await metricsStore.fetchMetrics();
+    lastSyncTime.value = new Date().toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
 }
 </script>
 

@@ -10,29 +10,31 @@ const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 
 const initialCapitalUsdc = computed(() => {
-  if (
-    configStore.config?.maxAllocatedCapitalUsdc &&
-    configStore.config.maxAllocatedCapitalUsdc > 0
-  ) {
-    return configStore.config.maxAllocatedCapitalUsdc;
-  }
-  return Number(
-    configStore.config?.simulatedBalanceUsdc ?? metricsStore.metrics.initialCapitalUsdc ?? 1000.0
-  );
+    if (
+        configStore.config?.maxAllocatedCapitalUsdc &&
+        configStore.config.maxAllocatedCapitalUsdc > 0
+    ) {
+        return configStore.config.maxAllocatedCapitalUsdc;
+    }
+    return Number(
+        configStore.config?.simulatedBalanceUsdc ??
+            metricsStore.metrics.initialCapitalUsdc ??
+            1000.0
+    );
 });
 const availableCashUsdc = computed(() => {
-  if (typeof metricsStore.metrics.availableCashUsdc === "number") {
-    return metricsStore.metrics.availableCashUsdc;
-  }
-  return Math.max(
-    0,
-    initialCapitalUsdc.value -
-      positionsStore.totalInvestedUsdc +
-      positionsStore.totalRealizedPnlUsdc
-  );
+    if (typeof metricsStore.metrics.availableCashUsdc === "number") {
+        return metricsStore.metrics.availableCashUsdc;
+    }
+    return Math.max(
+        0,
+        initialCapitalUsdc.value -
+            positionsStore.totalInvestedUsdc +
+            positionsStore.totalRealizedPnlUsdc
+    );
 });
 const totalPortfolioValueUsdc = computed(() => {
-  return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
+    return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
 });
 </script>
 

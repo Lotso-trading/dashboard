@@ -9,46 +9,52 @@ const activeFilter = ref<string>("ALL");
 const scrollContainer = ref<HTMLElement | null>(null);
 
 function getWhaleName(address: string): string {
-  const target = targetsStore.targets.find(
-    (t) => t.address.toLowerCase() === address.toLowerCase()
-  );
-  return target ? target.alias : `${address.slice(0, 8)}...`;
+    const target = targetsStore.targets.find(
+        (t) => t.address.toLowerCase() === address.toLowerCase()
+    );
+    return target ? target.alias : `${address.slice(0, 8)}...`;
 }
 
 function getSideBadge(side: string, status: string) {
-  if (status === "REJECTED") {
-    return { label: "REJETÉ", class: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
-  }
-  if (side === "BUY") {
-    return { label: "ACHAT", class: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
-  }
-  return { label: "VENTE (SORTIE ALL)", class: "bg-rose-500/15 text-rose-400 border-rose-500/30" };
+    if (status === "REJECTED") {
+        return { label: "REJETÉ", class: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
+    }
+    if (side === "BUY") {
+        return {
+            label: "ACHAT",
+            class: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+        };
+    }
+    return {
+        label: "VENTE (SORTIE ALL)",
+        class: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+    };
 }
 
 function formatDate(timestamp: number): string {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const d = new Date(timestamp);
+    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 async function setFilter(filter: string) {
-  activeFilter.value = filter;
-  await tradesStore.loadInitialTrades(filter);
-  if (scrollContainer.value) {
-    scrollContainer.value.scrollTop = 0;
-  }
+    activeFilter.value = filter;
+    await tradesStore.loadInitialTrades(filter);
+    if (scrollContainer.value) {
+        scrollContainer.value.scrollTop = 0;
+    }
 }
 
 function handleScroll(e: Event) {
-  const target = e.target as HTMLElement;
-  if (!target) return;
-  const threshold = 100;
-  if (target.scrollTop + target.clientHeight >= target.scrollHeight - threshold) {
-    tradesStore.loadMoreTrades();
-  }
+    const target = e.target as HTMLElement;
+    if (!target) return;
+    const threshold = 100;
+    if (target.scrollTop + target.clientHeight >= target.scrollHeight - threshold) {
+        tradesStore.loadMoreTrades();
+    }
 }
 
 onMounted(async () => {
-  await tradesStore.loadInitialTrades("ALL");
+    await tradesStore.loadInitialTrades("ALL");
 });
 </script>
 

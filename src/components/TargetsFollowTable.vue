@@ -11,68 +11,69 @@ const isModalOpen = ref(false);
 const viewMode = ref<"CARDS" | "TABLE">("CARDS");
 
 function getTargetPerformance(target: TargetTrader) {
-  const addr = target.address.toLowerCase();
+    const addr = target.address.toLowerCase();
 
-  // Positions fermées associées à cette baleine dans le store local
-  const closedForTarget = positionsStore.closedPositions.filter(
-    (p) => p.targetAddress?.toLowerCase() === addr
-  );
+    // Positions fermées associées à cette baleine dans le store local
+    const closedForTarget = positionsStore.closedPositions.filter(
+        (p) => p.targetAddress?.toLowerCase() === addr
+    );
 
-  const localWins = closedForTarget.filter(
-    (p) => p.closeReason === "RESOLVED_WIN" || (p.realizedPnlUsdc ?? 0) > 0
-  ).length;
+    const localWins = closedForTarget.filter(
+        (p) => p.closeReason === "RESOLVED_WIN" || (p.realizedPnlUsdc ?? 0) > 0
+    ).length;
 
-  const localLosses = closedForTarget.filter(
-    (p) => p.closeReason === "RESOLVED_LOSS" || (p.realizedPnlUsdc ?? 0) < 0
-  ).length;
+    const localLosses = closedForTarget.filter(
+        (p) => p.closeReason === "RESOLVED_LOSS" || (p.realizedPnlUsdc ?? 0) < 0
+    ).length;
 
-  const localPnl = closedForTarget.reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
+    const localPnl = closedForTarget.reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
 
-  // Privilégier les stats agrégées serveur, ou fallback dynamique sur les positions fermées locales
-  const wins =
-    target.stats.wonTrades !== undefined && target.stats.wonTrades > 0
-      ? target.stats.wonTrades
-      : localWins;
+    // Privilégier les stats agrégées serveur, ou fallback dynamique sur les positions fermées locales
+    const wins =
+        target.stats.wonTrades !== undefined && target.stats.wonTrades > 0
+            ? target.stats.wonTrades
+            : localWins;
 
-  const losses =
-    target.stats.lostTrades !== undefined && target.stats.lostTrades > 0
-      ? target.stats.lostTrades
-      : localLosses;
+    const losses =
+        target.stats.lostTrades !== undefined && target.stats.lostTrades > 0
+            ? target.stats.lostTrades
+            : localLosses;
 
-  const totalClosed = wins + losses;
+    const totalClosed = wins + losses;
 
-  const realizedPnl =
-    Math.abs(target.stats.realizedPnlUsdc) > 0.001 ? target.stats.realizedPnlUsdc : localPnl;
+    const realizedPnl =
+        Math.abs(target.stats.realizedPnlUsdc) > 0.001 ? target.stats.realizedPnlUsdc : localPnl;
 
-  const winRate = totalClosed > 0 ? (wins / totalClosed) * 100 : (target.stats.winRatePercent ?? 0);
+    const winRate =
+        totalClosed > 0 ? (wins / totalClosed) * 100 : (target.stats.winRatePercent ?? 0);
 
-  return {
-    trades: target.stats.totalCopiedTrades,
-    volume: target.stats.totalCopiedVolumeUsdc,
-    realizedPnl,
-    wins,
-    losses,
-    totalClosed,
-    winRate,
-  };
+    return {
+        trades: target.stats.totalCopiedTrades,
+        volume: target.stats.totalCopiedVolumeUsdc,
+        realizedPnl,
+        wins,
+        losses,
+        totalClosed,
+        winRate,
+    };
 }
 
 const targetsPerformance = computed(() => {
-  const map = new Map<string, ReturnType<typeof getTargetPerformance>>();
-  for (const t of targetsStore.targets) {
-    map.set(t.id, getTargetPerformance(t));
-  }
-  return map;
+    const map = new Map<string, ReturnType<typeof getTargetPerformance>>();
+    for (const t of targetsStore.targets) {
+        map.set(t.id, getTargetPerformance(t));
+    }
+    return map;
 });
 
 async function handleToggle(id: string, currentStatus: boolean): Promise<void> {
-  await targetsStore.toggleTarget(id, !currentStatus);
+    await targetsStore.toggleTarget(id, !currentStatus);
 }
 
 async function handleDelete(id: string, alias: string): Promise<void> {
-  if (confirm(`Confirmez-vous l'arrêt du suivi de la cible "${alias}" ?`)) {
-    await targetsStore.removeTarget(id);
-  }
+    if (confirm(`Confirmez-vous l'arrêt du suivi de la cible "${alias}" ?`)) {
+        await targetsStore.removeTarget(id);
+    }
 }
 </script>
 

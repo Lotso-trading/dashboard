@@ -16,36 +16,36 @@ const isSubmitting = ref(false);
 const errorMessage = ref("");
 
 async function handleSubmit(): Promise<void> {
-  errorMessage.value = "";
+    errorMessage.value = "";
 
-  if (!address.value.trim().match(/^0x[a-fA-F0-9]{40}$/)) {
-    errorMessage.value =
-      "L'adresse Polygon doit débuter par 0x suivi de 40 caractères hexadécimaux.";
-    return;
-  }
+    if (!address.value.trim().match(/^0x[a-fA-F0-9]{40}$/)) {
+        errorMessage.value =
+            "L'adresse Polygon doit débuter par 0x suivi de 40 caractères hexadécimaux.";
+        return;
+    }
 
-  if (!alias.value.trim()) {
-    errorMessage.value = "L'alias du trader est obligatoire.";
-    return;
-  }
+    if (!alias.value.trim()) {
+        errorMessage.value = "L'alias du trader est obligatoire.";
+        return;
+    }
 
-  isSubmitting.value = true;
-  try {
-    await targetsStore.addTarget({
-      address: address.value.trim(),
-      alias: alias.value.trim(),
-      proxyAddress: proxyAddress.value.trim() || undefined,
-      weightMultiplier: Number(weightMultiplier.value) || 1.0,
-      maxUsdcPerTrade: maxUsdcPerTrade.value ? Number(maxUsdcPerTrade.value) : undefined,
-      enabled: true,
-    });
-    emit("close");
-  } catch (err: unknown) {
-    errorMessage.value =
-      err instanceof Error ? err.message : "Erreur lors de l'enregistrement de la cible.";
-  } finally {
-    isSubmitting.value = false;
-  }
+    isSubmitting.value = true;
+    try {
+        await targetsStore.addTarget({
+            address: address.value.trim(),
+            alias: alias.value.trim(),
+            proxyAddress: proxyAddress.value.trim() || undefined,
+            weightMultiplier: Number(weightMultiplier.value) || 1.0,
+            maxUsdcPerTrade: maxUsdcPerTrade.value ? Number(maxUsdcPerTrade.value) : undefined,
+            enabled: true,
+        });
+        emit("close");
+    } catch (err: unknown) {
+        errorMessage.value =
+            err instanceof Error ? err.message : "Erreur lors de l'enregistrement de la cible.";
+    } finally {
+        isSubmitting.value = false;
+    }
 }
 </script>
 

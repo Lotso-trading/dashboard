@@ -11,40 +11,40 @@ const isBotRunning = computed(() => Boolean(configStore.config?.isBotRunning));
 const isDryRun = computed(() => Boolean(configStore.config?.dryRun));
 
 const botBadgeLabel = computed(() => {
-  if (!isBotOnline.value) {
-    return "BOT : HORS LIGNE (OFF)";
-  }
-  if (!isBotRunning.value) {
-    return "BOT : EN PAUSE";
-  }
-  return "BOT : ACTIF (ON)";
+    if (!isBotOnline.value) {
+        return "BOT : HORS LIGNE (OFF)";
+    }
+    if (!isBotRunning.value) {
+        return "BOT : EN PAUSE";
+    }
+    return "BOT : ACTIF (ON)";
 });
 
 const botBadgeClasses = computed(() => {
-  if (!isBotOnline.value) {
-    return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30 hover:bg-slate-500/20";
-  }
-  if (!isBotRunning.value) {
-    return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20";
-  }
-  return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20";
+    if (!isBotOnline.value) {
+        return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30 hover:bg-slate-500/20";
+    }
+    if (!isBotRunning.value) {
+        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20";
+    }
+    return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20";
 });
 
 const botDotClasses = computed(() => {
-  if (!isBotOnline.value) {
-    return "bg-slate-400 dark:bg-slate-500";
-  }
-  if (!isBotRunning.value) {
-    return "bg-rose-500";
-  }
-  return "bg-emerald-500 animate-pulse";
+    if (!isBotOnline.value) {
+        return "bg-slate-400 dark:bg-slate-500";
+    }
+    if (!isBotRunning.value) {
+        return "bg-rose-500";
+    }
+    return "bg-emerald-500 animate-pulse";
 });
 
 async function toggleBot(): Promise<void> {
-  const current = configStore.config?.isBotRunning ?? true;
-  await configStore.updateConfig({
-    isBotRunning: !current,
-  });
+    const current = configStore.config?.isBotRunning ?? true;
+    await configStore.updateConfig({
+        isBotRunning: !current,
+    });
 }
 </script>
 

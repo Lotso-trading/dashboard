@@ -4,17 +4,17 @@ import { useConfigStore } from "../stores/use-config.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 
 const props = withDefaults(
-  defineProps<{
-    initialAction?: "DEPOSIT" | "WITHDRAW";
-  }>(),
-  {
-    initialAction: "DEPOSIT",
-  }
+    defineProps<{
+        initialAction?: "DEPOSIT" | "WITHDRAW";
+    }>(),
+    {
+        initialAction: "DEPOSIT",
+    }
 );
 
 const emit = defineEmits<{
-  (e: "close"): void;
-  (e: "success", payload: { action: "DEPOSIT" | "WITHDRAW"; amount: number }): void;
+    (e: "close"): void;
+    (e: "success", payload: { action: "DEPOSIT" | "WITHDRAW"; amount: number }): void;
 }>();
 
 const configStore = useConfigStore();
@@ -27,75 +27,75 @@ const errorMessage = ref("");
 const successMessage = ref("");
 
 watch(
-  () => props.initialAction,
-  (newAction) => {
-    activeAction.value = newAction;
-    errorMessage.value = "";
-    successMessage.value = "";
-  }
+    () => props.initialAction,
+    (newAction) => {
+        activeAction.value = newAction;
+        errorMessage.value = "";
+        successMessage.value = "";
+    }
 );
 
 const availableCash = computed(() => {
-  return Number(metricsStore.metrics.availableCashUsdc ?? 0);
+    return Number(metricsStore.metrics.availableCashUsdc ?? 0);
 });
 
 const currentSimulated = computed(() => {
-  return Number(configStore.config?.simulatedBalanceUsdc ?? 1000.0);
+    return Number(configStore.config?.simulatedBalanceUsdc ?? 1000.0);
 });
 
 const isWithdrawInvalid = computed(() => {
-  if (activeAction.value !== "WITHDRAW") return false;
-  if (!amount.value || amount.value <= 0) return true;
-  return amount.value > availableCash.value;
+    if (activeAction.value !== "WITHDRAW") return false;
+    if (!amount.value || amount.value <= 0) return true;
+    return amount.value > availableCash.value;
 });
 
 function selectQuickAmount(val: number): void {
-  amount.value = val;
-  errorMessage.value = "";
+    amount.value = val;
+    errorMessage.value = "";
 }
 
 function selectMaxWithdraw(): void {
-  amount.value = Math.floor(availableCash.value * 100) / 100;
-  errorMessage.value = "";
+    amount.value = Math.floor(availableCash.value * 100) / 100;
+    errorMessage.value = "";
 }
 
 async function handleSubmit(): Promise<void> {
-  errorMessage.value = "";
-  successMessage.value = "";
+    errorMessage.value = "";
+    successMessage.value = "";
 
-  if (!amount.value || amount.value <= 0) {
-    errorMessage.value = "Veuillez saisir un montant supérieur à 0 USDC.";
-    return;
-  }
-
-  if (activeAction.value === "WITHDRAW" && amount.value > availableCash.value) {
-    errorMessage.value = `Retrait impossible : le montant demandé ($${amount.value.toFixed(2)}) dépasse votre cash libre disponible ($${availableCash.value.toFixed(2)}).`;
-    return;
-  }
-
-  isSubmitting.value = true;
-  try {
-    const val = Number(amount.value);
-    if (activeAction.value === "DEPOSIT") {
-      await configStore.depositFunds(val);
-      successMessage.value = `+${val.toFixed(2)} $ USDC ajoutés avec succès à votre portefeuille !`;
-    } else {
-      await configStore.withdrawFunds(val);
-      successMessage.value = `-${val.toFixed(2)} $ USDC retirés avec succès de votre portefeuille.`;
+    if (!amount.value || amount.value <= 0) {
+        errorMessage.value = "Veuillez saisir un montant supérieur à 0 USDC.";
+        return;
     }
 
-    await metricsStore.fetchMetrics();
-    emit("success", { action: activeAction.value, amount: val });
+    if (activeAction.value === "WITHDRAW" && amount.value > availableCash.value) {
+        errorMessage.value = `Retrait impossible : le montant demandé ($${amount.value.toFixed(2)}) dépasse votre cash libre disponible ($${availableCash.value.toFixed(2)}).`;
+        return;
+    }
 
-    setTimeout(() => {
-      emit("close");
-    }, 1200);
-  } catch (err: unknown) {
-    errorMessage.value =
-      err instanceof Error ? err.message : "Erreur lors de la mise à jour du portefeuille.";
-  } finally {
-    isSubmitting.value = false;
-  }
+    isSubmitting.value = true;
+    try {
+        const val = Number(amount.value);
+        if (activeAction.value === "DEPOSIT") {
+            await configStore.depositFunds(val);
+            successMessage.value = `+${val.toFixed(2)} $ USDC ajoutés avec succès à votre portefeuille !`;
+        } else {
+            await configStore.withdrawFunds(val);
+            successMessage.value = `-${val.toFixed(2)} $ USDC retirés avec succès de votre portefeuille.`;
+        }
+
+        await metricsStore.fetchMetrics();
+        emit("success", { action: activeAction.value, amount: val });
+
+        setTimeout(() => {
+            emit("close");
+        }, 1200);
+    } catch (err: unknown) {
+        errorMessage.value =
+            err instanceof Error ? err.message : "Erreur lors de la mise à jour du portefeuille.";
+    } finally {
+        isSubmitting.value = false;
+    }
 }
 </script>
 

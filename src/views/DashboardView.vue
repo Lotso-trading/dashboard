@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type {
-  ExecutedTrade,
-  OpenPosition,
-  RiskConfig,
-  TargetTrader,
+    ExecutedTrade,
+    OpenPosition,
+    RiskConfig,
+    TargetTrader,
 } from "@polymarket-copy/shared";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { wsClient } from "../api/websocket-client.ts";
@@ -23,60 +23,60 @@ import { useTradesStore } from "../stores/use-trades.store.ts";
 import ClosedPositionsJournalView from "./ClosedPositionsJournalView.vue";
 
 export type DashboardTab =
-  | "SYNTHESIS"
-  | "OVERVIEW"
-  | "TARGETS"
-  | "POSITIONS"
-  | "CLOSED_JOURNAL"
-  | "FEED"
-  | "RISK";
+    | "SYNTHESIS"
+    | "OVERVIEW"
+    | "TARGETS"
+    | "POSITIONS"
+    | "CLOSED_JOURNAL"
+    | "FEED"
+    | "RISK";
 
 const currentTab = ref<DashboardTab>("SYNTHESIS");
 
 function setTab(tab: DashboardTab): void {
-  currentTab.value = tab;
-  updateHash(tab);
+    currentTab.value = tab;
+    updateHash(tab);
 }
 
 function updateHash(tab: DashboardTab): void {
-  const map: Record<DashboardTab, string> = {
-    SYNTHESIS: "synthesis",
-    OVERVIEW: "overview",
-    TARGETS: "targets",
-    POSITIONS: "positions",
-    CLOSED_JOURNAL: "closed-journal",
-    FEED: "feed",
-    RISK: "risk",
-  };
-  const targetHash = `#${map[tab] || "synthesis"}`;
-  if (typeof window !== "undefined" && window.location.hash !== targetHash) {
-    window.location.hash = targetHash;
-  }
+    const map: Record<DashboardTab, string> = {
+        SYNTHESIS: "synthesis",
+        OVERVIEW: "overview",
+        TARGETS: "targets",
+        POSITIONS: "positions",
+        CLOSED_JOURNAL: "closed-journal",
+        FEED: "feed",
+        RISK: "risk",
+    };
+    const targetHash = `#${map[tab] || "synthesis"}`;
+    if (typeof window !== "undefined" && window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+    }
 }
 
 function syncTabFromHash(): void {
-  if (typeof window === "undefined") return;
-  const hash = window.location.hash.toLowerCase();
-  if (
-    hash === "#closed-journal" ||
-    hash === "#closed" ||
-    hash === "#history" ||
-    hash === "#journal"
-  ) {
-    currentTab.value = "CLOSED_JOURNAL";
-  } else if (hash === "#overview") {
-    currentTab.value = "OVERVIEW";
-  } else if (hash === "#targets") {
-    currentTab.value = "TARGETS";
-  } else if (hash === "#positions") {
-    currentTab.value = "POSITIONS";
-  } else if (hash === "#feed") {
-    currentTab.value = "FEED";
-  } else if (hash === "#risk") {
-    currentTab.value = "RISK";
-  } else if (hash === "#synthesis") {
-    currentTab.value = "SYNTHESIS";
-  }
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.toLowerCase();
+    if (
+        hash === "#closed-journal" ||
+        hash === "#closed" ||
+        hash === "#history" ||
+        hash === "#journal"
+    ) {
+        currentTab.value = "CLOSED_JOURNAL";
+    } else if (hash === "#overview") {
+        currentTab.value = "OVERVIEW";
+    } else if (hash === "#targets") {
+        currentTab.value = "TARGETS";
+    } else if (hash === "#positions") {
+        currentTab.value = "POSITIONS";
+    } else if (hash === "#feed") {
+        currentTab.value = "FEED";
+    } else if (hash === "#risk") {
+        currentTab.value = "RISK";
+    } else if (hash === "#synthesis") {
+        currentTab.value = "SYNTHESIS";
+    }
 }
 
 const metricsStore = useMetricsStore();
@@ -87,87 +87,87 @@ const configStore = useConfigStore();
 const last24hStore = useLast24hSummaryStore();
 
 onMounted(async () => {
-  syncTabFromHash();
-  window.addEventListener("hashchange", syncTabFromHash);
+    syncTabFromHash();
+    window.addEventListener("hashchange", syncTabFromHash);
 
-  // Chargement initial des stores
-  await Promise.all([
-    metricsStore.fetchMetrics(),
-    targetsStore.fetchTargets(),
-    positionsStore.fetchPositions(),
-    positionsStore.fetchClosedPositions(),
-    tradesStore.fetchTrades(1, 30),
-    configStore.fetchConfig(),
-  ]);
+    // Chargement initial des stores
+    await Promise.all([
+        metricsStore.fetchMetrics(),
+        targetsStore.fetchTargets(),
+        positionsStore.fetchPositions(),
+        positionsStore.fetchClosedPositions(),
+        tradesStore.fetchTrades(1, 30),
+        configStore.fetchConfig(),
+    ]);
 
-  // Connexion WebSocket temps réel
-  wsClient.connect();
+    // Connexion WebSocket temps réel
+    wsClient.connect();
 
-  wsClient.on("trade:created", (trade) => {
-    tradesStore.handleTradeCreated(trade as ExecutedTrade);
-    metricsStore.fetchMetrics();
-    positionsStore.fetchPositions();
-  });
+    wsClient.on("trade:created", (trade) => {
+        tradesStore.handleTradeCreated(trade as ExecutedTrade);
+        metricsStore.fetchMetrics();
+        positionsStore.fetchPositions();
+    });
 
-  wsClient.on("position:updated", (pos) => {
-    positionsStore.handlePositionUpdated(pos as OpenPosition);
-    metricsStore.fetchMetrics();
-  });
+    wsClient.on("position:updated", (pos) => {
+        positionsStore.handlePositionUpdated(pos as OpenPosition);
+        metricsStore.fetchMetrics();
+    });
 
-  wsClient.on("position:closed", (data) => {
-    const closed = data as { conditionId?: string };
-    if (closed?.conditionId) {
-      positionsStore.handlePositionClosed(closed.conditionId);
-      positionsStore.fetchClosedPositions();
-      targetsStore.fetchTargets();
-      last24hStore.loadInitial();
-      metricsStore.fetchMetrics();
-    }
-  });
+    wsClient.on("position:closed", (data) => {
+        const closed = data as { conditionId?: string };
+        if (closed?.conditionId) {
+            positionsStore.handlePositionClosed(closed.conditionId);
+            positionsStore.fetchClosedPositions();
+            targetsStore.fetchTargets();
+            last24hStore.loadInitial();
+            metricsStore.fetchMetrics();
+        }
+    });
 
-  wsClient.on("target:created", () => {
-    targetsStore.fetchTargets();
-    metricsStore.fetchMetrics();
-  });
+    wsClient.on("target:created", () => {
+        targetsStore.fetchTargets();
+        metricsStore.fetchMetrics();
+    });
 
-  wsClient.on("target:updated", (target) => {
-    targetsStore.handleTargetUpdated(target as TargetTrader);
-  });
+    wsClient.on("target:updated", (target) => {
+        targetsStore.handleTargetUpdated(target as TargetTrader);
+    });
 
-  wsClient.on("target:deleted", () => {
-    targetsStore.fetchTargets();
-    metricsStore.fetchMetrics();
-  });
+    wsClient.on("target:deleted", () => {
+        targetsStore.fetchTargets();
+        metricsStore.fetchMetrics();
+    });
 
-  wsClient.on("config:updated", (config) => {
-    configStore.handleConfigUpdated(config as RiskConfig);
-  });
+    wsClient.on("config:updated", (config) => {
+        configStore.handleConfigUpdated(config as RiskConfig);
+    });
 
-  wsClient.on("positions:cleared", () => {
-    positionsStore.fetchPositions();
-    metricsStore.fetchMetrics();
-  });
+    wsClient.on("positions:cleared", () => {
+        positionsStore.fetchPositions();
+        metricsStore.fetchMetrics();
+    });
 
-  wsClient.on("metrics:updated", () => {
-    metricsStore.fetchMetrics();
-  });
+    wsClient.on("metrics:updated", () => {
+        metricsStore.fetchMetrics();
+    });
 
-  wsClient.on("simulation:reset", () => {
-    metricsStore.fetchMetrics();
-    positionsStore.fetchPositions();
-    tradesStore.fetchTrades(1, 30);
-  });
+    wsClient.on("simulation:reset", () => {
+        metricsStore.fetchMetrics();
+        positionsStore.fetchPositions();
+        tradesStore.fetchTrades(1, 30);
+    });
 
-  wsClient.on("connected", () => {
-    metricsStore.fetchMetrics();
-    positionsStore.fetchPositions();
-  });
+    wsClient.on("connected", () => {
+        metricsStore.fetchMetrics();
+        positionsStore.fetchPositions();
+    });
 });
 
 onBeforeUnmount(() => {
-  if (typeof window !== "undefined") {
-    window.removeEventListener("hashchange", syncTabFromHash);
-  }
+    if (typeof window !== "undefined") {
+        window.removeEventListener("hashchange", syncTabFromHash);
+    }
 });
 </script>
 
