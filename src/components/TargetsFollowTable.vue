@@ -26,10 +26,7 @@ function getTargetPerformance(target: TargetTrader) {
     (p) => p.closeReason === "RESOLVED_LOSS" || (p.realizedPnlUsdc ?? 0) < 0
   ).length;
 
-  const localPnl = closedForTarget.reduce(
-    (acc, p) => acc + (p.realizedPnlUsdc ?? 0),
-    0
-  );
+  const localPnl = closedForTarget.reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
 
   // Privilégier les stats agrégées serveur, ou fallback dynamique sur les positions fermées locales
   const wins =
@@ -45,14 +42,9 @@ function getTargetPerformance(target: TargetTrader) {
   const totalClosed = wins + losses;
 
   const realizedPnl =
-    Math.abs(target.stats.realizedPnlUsdc) > 0.001
-      ? target.stats.realizedPnlUsdc
-      : localPnl;
+    Math.abs(target.stats.realizedPnlUsdc) > 0.001 ? target.stats.realizedPnlUsdc : localPnl;
 
-  const winRate =
-    totalClosed > 0
-      ? (wins / totalClosed) * 100
-      : (target.stats.winRatePercent ?? 0);
+  const winRate = totalClosed > 0 ? (wins / totalClosed) * 100 : (target.stats.winRatePercent ?? 0);
 
   return {
     trades: target.stats.totalCopiedTrades,
