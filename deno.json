@@ -11,11 +11,7 @@
         "vite": "npm:vite@^8.3.8"
     },
     "compilerOptions": {
-        "lib": [
-            "dom",
-            "dom.iterable",
-            "esnext"
-        ],
+        "lib": ["dom", "dom.iterable", "esnext"],
         "strict": true,
         "noImplicitAny": true,
         "strictNullChecks": true,
