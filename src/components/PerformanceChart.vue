@@ -1,40 +1,29 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { PerformancePoint } from "../api/http-client.ts";
-import { useConfigStore } from "../stores/use-config.store.ts";
+import { usePortfolioMetrics } from "../composables/use-portfolio-metrics.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
-import { useTradesStore } from "../stores/use-trades.store.ts";
 import {
     filterPerformancePoints,
     formatTooltipDate,
     formatXTickLabel,
     type TimeFilterPeriod,
 } from "../utils/performance-filter.ts";
+import AppBadge from "./ui/AppBadge.vue";
+import AppIcon from "./ui/AppIcon.vue";
 
-const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const targetsStore = useTargetsStore();
-const tradesStore = useTradesStore();
 
-const initialCapital = computed(() => {
-    if (
-        configStore.config?.maxAllocatedCapitalUsdc &&
-        configStore.config.maxAllocatedCapitalUsdc > 0
-    ) {
-        return configStore.config.maxAllocatedCapitalUsdc;
-    }
-    return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
-});
+const { initialCapitalUsdc: initialCapital, totalPortfolioValueUsdc } = usePortfolioMetrics();
 
-// Visibilité des séries
 const showPortfolioValue = ref(true);
 const showMyCumulativePnl = ref(true);
 const showWhaleVolume = ref(true);
 const showTradeMarkers = ref(true);
 const selectedWhaleAddress = ref<string>("ALL");
 
-// Filtre temporel (1H, 24H, 3J, 1M, ALL)
 const selectedPeriod = ref<TimeFilterPeriod>("ALL");
 const timeFilters: { id: TimeFilterPeriod; label: string }[] = [
     { id: "1H", label: "1H" },
@@ -44,12 +33,8 @@ const timeFilters: { id: TimeFilterPeriod; label: string }[] = [
     { id: "ALL", label: "ALL" },
 ];
 
-// État du survol interactif
 const hoveredPoint = ref<PerformancePoint | null>(null);
-const hoverX = ref<number>(0);
-const hoverY = ref<number>(0);
 
-// Données de performance filtrées et fenêtrées
 const performanceData = computed(() => {
     return filterPerformancePoints(
         metricsStore.performanceHistory,
@@ -62,11 +47,9 @@ const performanceData = computed(() => {
 const filteredPoints = computed(() => performanceData.value.points);
 const timeRange = computed(() => performanceData.value.timeRange);
 
-// Dimensions du SVG
 const width = 850;
 const height = 280;
 const padding = { top: 30, right: 40, bottom: 40, left: 60 };
-
 const chartWidth = width - padding.left - padding.right;
 const chartHeight = height - padding.top - padding.bottom;
 
@@ -77,7 +60,7 @@ const valueRange = computed(() => {
     const values: number[] = [];
     for (const p of pts) {
         if (showPortfolioValue.value) values.push(p.portfolioValueUsdc);
-        if (showMyCumulativePnl.value) values.push(p.myCumulativePnlUsdc + initialCapital.value); // normalisé
+        if (showMyCumulativePnl.value) values.push(p.myCumulativePnlUsdc + initialCapital.value);
         if (showWhaleVolume.value) values.push(p.whaleCumulativeUsdc);
     }
 
@@ -93,7 +76,6 @@ const valueRange = computed(() => {
     };
 });
 
-// Fonctions de coordonnées
 function getX(timestamp: number): number {
     const { min, max } = timeRange.value;
     if (max === min) return padding.left + chartWidth / 2;
@@ -106,7 +88,6 @@ function getY(val: number): number {
     return padding.top + chartHeight - ((val - min) / (max - min)) * chartHeight;
 }
 
-// Construction des tracés SVG
 const portfolioPath = computed(() => {
     const pts = filteredPoints.value;
     if (pts.length === 0) return "";
@@ -120,11 +101,11 @@ const portfolioPath = computed(() => {
 
 const portfolioAreaPath = computed(() => {
     const pts = filteredPoints.value;
-    if (pts.length === 0) return "";
-    const firstX = getX(pts[0].timestamp);
-    const lastX = getX(pts[pts.length - 1].timestamp);
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    if (!first || !last) return "";
     const bottomY = padding.top + chartHeight;
-    return `${portfolioPath.value} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`;
+    return `${portfolioPath.value} L ${getX(last.timestamp).toFixed(1)} ${bottomY} L ${getX(first.timestamp).toFixed(1)} ${bottomY} Z`;
 });
 
 const myPnlPath = computed(() => {
@@ -149,12 +130,10 @@ const whalePath = computed(() => {
         .join(" ");
 });
 
-// Points de trade individuels
 const tradeMarkers = computed(() => {
     return filteredPoints.value.filter((p) => p.side !== undefined);
 });
 
-// Graduation Y
 const yTicks = computed(() => {
     const { min, max } = valueRange.value;
     const count = 5;
@@ -167,7 +146,6 @@ const yTicks = computed(() => {
     return ticks;
 });
 
-// Graduation X (Heures ou Jours selon la granularité)
 const xTicks = computed(() => {
     const { min, max } = timeRange.value;
     const count = 4;
@@ -186,28 +164,27 @@ const xTicks = computed(() => {
     return ticks;
 });
 
-function handlePointHover(point: PerformancePoint, event: MouseEvent) {
+function handlePointHover(point: PerformancePoint): void {
     hoveredPoint.value = point;
-    const target = event.currentTarget as HTMLElement | null;
-    if (target) {
-        const rect = target.getBoundingClientRect();
-        hoverX.value = rect.left + rect.width / 2;
-        hoverY.value = rect.top;
-    }
 }
 
-function handleMouseLeave() {
+function handleMouseLeave(): void {
     hoveredPoint.value = null;
 }
 </script>
 
 <template>
-  <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden p-6 relative shadow-xs transition-colors">
+  <div
+    class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden p-6 relative shadow-xs transition-colors"
+  >
     <!-- Header Graphique -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800/80">
+    <div
+      class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800/80"
+    >
       <div>
         <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <span>📈</span> Courbe de Performance Lotso vs Cibles
+          <AppIcon name="trending-up" :size="17" class="text-rose-500" />
+          <span>Courbe de Performance Lotso vs Cibles</span>
         </h3>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Évolution en temps réel de votre capital, comparaison des gains et traçabilité des ordres répliqués
@@ -215,9 +192,11 @@ function handleMouseLeave() {
       </div>
 
       <!-- Contrôles et Filtres -->
-      <div class="flex flex-wrap items-center gap-3">
-        <!-- Filtre Période Temporelle (1H, 24H, 3J, 1M, ALL) -->
-        <div class="inline-flex items-center p-1 rounded-xl border bg-slate-100 border-slate-200 dark:bg-[#0B0E14] dark:border-slate-800 text-xs">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Filtre Période Temporelle -->
+        <div
+          class="inline-flex items-center p-1 rounded-xl border bg-slate-100 border-slate-200 dark:bg-[#0B0E14] dark:border-slate-800 text-xs"
+        >
           <button
             v-for="period in timeFilters"
             :key="period.id"
@@ -227,7 +206,7 @@ function handleMouseLeave() {
               'px-2.5 py-1 rounded-lg transition font-medium cursor-pointer text-[11px] font-mono',
               selectedPeriod === period.id
                 ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-bold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white',
             ]"
           >
             {{ period.label }}
@@ -237,77 +216,76 @@ function handleMouseLeave() {
         <!-- Filtre Baleine -->
         <select
           v-model="selectedWhaleAddress"
+          aria-label="Filtrer la courbe par baleine"
           class="bg-slate-50 dark:bg-[#0B0E14] border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500 font-mono shadow-xs"
         >
-          <option value="ALL">Toutes les Baleines</option>
+          <option value="ALL">Toutes les baleines</option>
           <option
             v-for="target in targetsStore.targets"
             :key="target.id"
             :value="target.address"
           >
-            🐋 {{ target.alias }}
+            {{ target.alias }}
           </option>
         </select>
 
         <!-- Toggles de Séries -->
-        <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-[#0B0E14] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-          <!-- Capital Portefeuille -->
+        <div
+          class="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-[#0B0E14] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
+        >
           <button
             type="button"
             @click="showPortfolioValue = !showPortfolioValue"
             :class="[
-              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
               showPortfolioValue
                 ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 font-semibold'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 border border-transparent',
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 inline-block"></span>
-            Capital Portefeuille
+            <span class="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 inline-block" />
+            Capital
           </button>
 
-          <!-- Mes Gains Copiés -->
           <button
             type="button"
             @click="showMyCumulativePnl = !showMyCumulativePnl"
             :class="[
-              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
               showMyCumulativePnl
                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 border border-transparent',
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 inline-block"></span>
-            Mes Gains Copiés
+            <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 inline-block" />
+            Gains
           </button>
 
-          <!-- Volume Baleine -->
           <button
             type="button"
             @click="showWhaleVolume = !showWhaleVolume"
             :class="[
-              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
               showWhaleVolume
                 ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 font-semibold'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 border border-transparent',
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400 inline-block"></span>
-            Volume Baleine
+            <span class="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400 inline-block" />
+            Volume
           </button>
 
-          <!-- Marqueurs Trades -->
           <button
             type="button"
             @click="showTradeMarkers = !showTradeMarkers"
             :class="[
-              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer',
+              'px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
               showTradeMarkers
                 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-semibold'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 border border-transparent',
             ]"
           >
-            <span class="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 inline-block"></span>
+            <span class="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 inline-block" />
             Trades
           </button>
         </div>
@@ -321,21 +299,13 @@ function handleMouseLeave() {
         class="w-full h-full overflow-visible font-mono select-none"
       >
         <defs>
-          <!-- Dégradé sous la courbe de capital -->
           <linearGradient id="capitalGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25" />
             <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0" />
           </linearGradient>
-
-          <!-- Dégradé PnL -->
-          <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#10b981" stop-opacity="0.3" />
-            <stop offset="100%" stop-color="#10b981" stop-opacity="0.0" />
-          </linearGradient>
         </defs>
 
-        <!-- Lignes horizontales de graduation Y -->
-        <g class="text-slate-700 stroke-slate-800/80 stroke-dasharray-[2,4]">
+        <g class="text-slate-300 dark:text-slate-700">
           <line
             v-for="tick in yTicks"
             :key="tick.val"
@@ -349,7 +319,6 @@ function handleMouseLeave() {
           />
         </g>
 
-        <!-- Labels Y (Montants en $) -->
         <g class="text-[10px] fill-slate-500 text-right">
           <text
             v-for="tick in yTicks"
@@ -362,7 +331,6 @@ function handleMouseLeave() {
           </text>
         </g>
 
-        <!-- Ligne de flottaison Base Capital -->
         <line
           :x1="padding.left"
           :y1="getY(initialCapital)"
@@ -378,10 +346,9 @@ function handleMouseLeave() {
           fill="#64748b"
           class="text-[9px]"
         >
-          Base {{ initialCapital }} $
+          Base ${{ initialCapital }}
         </text>
 
-        <!-- Labels X (Heures) -->
         <g class="text-[10px] fill-slate-500 text-center">
           <text
             v-for="tick in xTicks"
@@ -394,14 +361,12 @@ function handleMouseLeave() {
           </text>
         </g>
 
-        <!-- Surface sous le capital -->
         <path
           v-if="showPortfolioValue && portfolioAreaPath"
           :d="portfolioAreaPath"
           fill="url(#capitalGradient)"
         />
 
-        <!-- Courbe 1 : Progression Volume Baleine -->
         <path
           v-if="showWhaleVolume && whalePath"
           :d="whalePath"
@@ -409,30 +374,24 @@ function handleMouseLeave() {
           stroke="#c084fc"
           stroke-width="2"
           stroke-dasharray="4,4"
-          class="transition-all duration-300"
         />
 
-        <!-- Courbe 2 : PnL Copié Net (+ base capital) -->
         <path
           v-if="showMyCumulativePnl && myPnlPath"
           :d="myPnlPath"
           fill="none"
           stroke="#34d399"
           stroke-width="2"
-          class="transition-all duration-300"
         />
 
-        <!-- Courbe 3 : Capital Portefeuille -->
         <path
           v-if="showPortfolioValue && portfolioPath"
           :d="portfolioPath"
           fill="none"
           stroke="#38bdf8"
           stroke-width="2.5"
-          class="transition-all duration-300"
         />
 
-        <!-- Ligne verticale au survol (pointer-events-none pour éviter tout clignotement) -->
         <line
           v-if="hoveredPoint"
           :x1="getX(hoveredPoint.timestamp)"
@@ -445,107 +404,106 @@ function handleMouseLeave() {
           pointer-events="none"
         />
 
-        <!-- Marqueurs de Trades Répliqués -->
+        <!-- Marqueurs de Trades (cy corrigé) -->
         <g v-if="showTradeMarkers">
           <g
             v-for="trade in tradeMarkers"
             :key="trade.tradeId || trade.timestamp"
             class="cursor-pointer"
-            @mouseenter="handlePointHover(trade, $event)"
+            @mouseenter="handlePointHover(trade)"
           >
-            <!-- Hitbox transparente élargie pour éviter le clignotement -->
             <circle
               :cx="getX(trade.timestamp)"
-              :y="getY(trade.portfolioValueUsdc)"
-              r="16"
+              :cy="getY(trade.portfolioValueUsdc)"
+              r="14"
               fill="transparent"
             />
-
-            <!-- Cercle visuel stable avec agrandissement réactif sans CSS scale -->
             <circle
               :cx="getX(trade.timestamp)"
-              :y="getY(trade.portfolioValueUsdc)"
-              :r="hoveredPoint?.tradeId && hoveredPoint.tradeId === trade.tradeId ? 7 : (trade.side === 'BUY' ? 4.5 : 5)"
+              :cy="getY(trade.portfolioValueUsdc)"
+              :r="hoveredPoint?.tradeId && hoveredPoint.tradeId === trade.tradeId ? 7 : 4.5"
               :class="[
                 'pointer-events-none transition-all duration-150',
                 trade.side === 'BUY'
-                  ? (hoveredPoint?.tradeId === trade.tradeId ? 'fill-emerald-300 stroke-white stroke-2' : 'fill-emerald-400 stroke-[#0B0E14] stroke-2')
-                  : (hoveredPoint?.tradeId === trade.tradeId ? 'fill-rose-300 stroke-white stroke-2' : 'fill-rose-400 stroke-[#0B0E14] stroke-2')
+                  ? hoveredPoint?.tradeId === trade.tradeId
+                    ? 'fill-emerald-300 stroke-white stroke-2'
+                    : 'fill-emerald-400 stroke-[#0B0E14] stroke-2'
+                  : hoveredPoint?.tradeId === trade.tradeId
+                    ? 'fill-rose-300 stroke-white stroke-2'
+                    : 'fill-rose-400 stroke-[#0B0E14] stroke-2',
               ]"
             />
           </g>
         </g>
       </svg>
 
-      <!-- Tooltip Flottant Interactif -->
+      <!-- Tooltip Flottant -->
       <div
         v-if="hoveredPoint"
-        class="absolute pointer-events-none z-20 bg-white/95 dark:bg-[#0B0E14]/95 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur text-xs font-mono space-y-1.5 min-w-[240px] text-slate-800 dark:text-slate-100 transition-colors"
+        class="absolute pointer-events-none z-20 bg-white/95 dark:bg-[#0B0E14]/95 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur text-xs font-mono space-y-1.5 min-w-[230px] text-slate-800 dark:text-slate-100"
         :style="{
           left: `${Math.min(width - 250, Math.max(20, getX(hoveredPoint.timestamp) - 120))}px`,
-          top: `10px`,
+          top: '10px',
         }"
       >
-        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5 text-slate-500 dark:text-slate-400 text-[11px]">
+        <div
+          class="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-1.5 text-slate-500 dark:text-slate-400 text-[11px]"
+        >
           <span>{{ formatTooltipDate(hoveredPoint.timestamp, selectedPeriod) }}</span>
-          <span
+          <AppBadge
             v-if="hoveredPoint.side"
-            :class="[
-              'px-1.5 py-0.5 rounded font-bold uppercase text-[10px]',
-              hoveredPoint.side === 'BUY'
-                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-            ]"
+            :variant="hoveredPoint.side === 'BUY' ? 'success' : 'danger'"
+            size="xs"
+            rounded="md"
           >
-            {{ hoveredPoint.side === 'BUY' ? 'Achat Copié' : 'Vente Copiée' }}
-          </span>
+            {{ hoveredPoint.side === "BUY" ? "Achat" : "Vente" }}
+          </AppBadge>
         </div>
 
-        <div v-if="hoveredPoint.targetAlias" class="text-slate-700 dark:text-slate-200">
+        <div v-if="hoveredPoint.targetAlias">
           <span class="text-slate-500 dark:text-slate-400">Baleine :</span>
           <span class="font-bold text-blue-600 dark:text-blue-400 ml-1.5">{{ hoveredPoint.targetAlias }}</span>
         </div>
 
-        <div v-if="hoveredPoint.shares" class="text-slate-700 dark:text-slate-200">
+        <div v-if="hoveredPoint.shares">
           <span class="text-slate-500 dark:text-slate-400">Parts :</span>
-          <span class="font-bold text-slate-900 dark:text-white ml-1.5">{{ hoveredPoint.shares.toFixed(1) }} parts</span>
+          <span class="font-bold text-slate-900 dark:text-white ml-1.5">{{ hoveredPoint.shares.toFixed(1) }}</span>
           <span class="text-slate-500 dark:text-slate-400 ml-1">@ ${{ (hoveredPoint.price ?? 0).toFixed(3) }}</span>
         </div>
 
-        <div v-if="hoveredPoint.costUsdc" class="text-slate-700 dark:text-slate-200">
+        <div v-if="hoveredPoint.costUsdc">
           <span class="text-slate-500 dark:text-slate-400">Mise :</span>
-          <span class="font-bold text-amber-600 dark:text-amber-400 ml-1.5">${{ hoveredPoint.costUsdc.toFixed(2) }} USDC</span>
-        </div>
-
-        <div v-if="hoveredPoint.shares && hoveredPoint.costUsdc" class="bg-emerald-500/10 border border-emerald-500/20 rounded p-1.5 text-[11px] text-emerald-700 dark:text-emerald-400">
-          <div>Si gagnant : <strong class="text-slate-900 dark:text-white">${{ hoveredPoint.shares.toFixed(2) }} USDC</strong></div>
-          <div class="text-[10px] text-emerald-600 dark:text-emerald-300">Bénéfice net : +${{ (hoveredPoint.shares - hoveredPoint.costUsdc).toFixed(2) }}</div>
+          <span class="font-bold text-amber-600 dark:text-amber-400 ml-1.5">${{ hoveredPoint.costUsdc.toFixed(2) }}</span>
         </div>
 
         <div class="border-t border-slate-200 dark:border-slate-800/80 pt-1.5 space-y-1">
           <div class="flex justify-between">
-            <span class="text-slate-500 dark:text-slate-400">Capital Portefeuille :</span>
+            <span class="text-slate-500 dark:text-slate-400">Portefeuille :</span>
             <span class="font-bold text-sky-600 dark:text-sky-400">${{ hoveredPoint.portfolioValueUsdc.toFixed(2) }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-slate-500 dark:text-slate-400">PnL Net Copié :</span>
+            <span class="text-slate-500 dark:text-slate-400">PnL Net :</span>
             <span
-              :class="hoveredPoint.myCumulativePnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+              :class="
+                hoveredPoint.myCumulativePnlUsdc >= 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-rose-600 dark:text-rose-400'
+              "
               class="font-bold"
             >
-              {{ hoveredPoint.myCumulativePnlUsdc >= 0 ? '+' : '' }}${{ hoveredPoint.myCumulativePnlUsdc.toFixed(2) }}
+              {{ hoveredPoint.myCumulativePnlUsdc >= 0 ? "+" : "" }}${{ hoveredPoint.myCumulativePnlUsdc.toFixed(2) }}
             </span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Légende et Métriques Rapides sous le Graphique -->
+    <!-- Métriques Rapides -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800/60 text-xs">
       <div class="bg-slate-50 dark:bg-[#0B0E14]/40 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800/60">
         <span class="text-slate-500 dark:text-slate-400 text-[11px] block">Capital Actuel</span>
         <span class="text-sm font-bold font-mono text-slate-900 dark:text-white">
-          ${{ (initialCapital - metricsStore.metrics.totalInvestedUsdc + metricsStore.metrics.currentPositionsValueUsdc).toFixed(2) }}
+          ${{ totalPortfolioValueUsdc.toFixed(2) }}
         </span>
       </div>
 
@@ -553,9 +511,13 @@ function handleMouseLeave() {
         <span class="text-slate-500 dark:text-slate-400 text-[11px] block">PnL Latent</span>
         <span
           class="text-sm font-bold font-mono"
-          :class="metricsStore.metrics.unrealizedPnlUsdc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+          :class="
+            metricsStore.metrics.unrealizedPnlUsdc >= 0
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-rose-600 dark:text-rose-400'
+          "
         >
-          {{ metricsStore.metrics.unrealizedPnlUsdc >= 0 ? '+' : '' }}${{ metricsStore.metrics.unrealizedPnlUsdc.toFixed(2) }}
+          {{ metricsStore.metrics.unrealizedPnlUsdc >= 0 ? "+" : "" }}${{ metricsStore.metrics.unrealizedPnlUsdc.toFixed(2) }}
         </span>
       </div>
 

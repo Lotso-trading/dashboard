@@ -1,273 +1,200 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onMounted } from "vue";
+import AppBadge from "../components/ui/AppBadge.vue";
+import AppEmptyState from "../components/ui/AppEmptyState.vue";
+import AppIcon from "../components/ui/AppIcon.vue";
+import AppPageHeader from "../components/ui/AppPageHeader.vue";
+import AppPagination from "../components/ui/AppPagination.vue";
+import AppSegmentedFilter from "../components/ui/AppSegmentedFilter.vue";
+import StatKpiCard from "../components/ui/StatKpiCard.vue";
 import { useClosedJournalStore } from "../stores/use-closed-journal.store.ts";
+import { getClosedPositionOutcome } from "../utils/closed-outcome.ts";
+import {
+    formatCurrency,
+    formatSignedCurrency,
+    formatSignedPercent,
+    formatTimestampDateTime,
+} from "../utils/formatters.ts";
 import { getPolymarketUrl } from "../utils/polymarket-url.ts";
 
 const emit = defineEmits<(e: "navigate", tab: "SYNTHESIS") => void>();
 
 const journalStore = useClosedJournalStore();
-const sentinelEl = ref<HTMLElement | null>(null);
-let observer: IntersectionObserver | null = null;
 
-function formatDate(timestamp?: number): string {
-    if (!timestamp) return "—";
-    const ms = timestamp < 100_000_000_000 ? timestamp * 1000 : timestamp;
-    return new Date(ms).toLocaleDateString("fr-FR", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
+const referenceTotals = computed(() =>
+    journalStore.unfilteredTotals.count > 0 ? journalStore.unfilteredTotals : journalStore.totals
+);
 
-async function changeFilter(status: "ALL" | "WIN" | "LOSS"): Promise<void> {
-    await journalStore.loadInitial(status);
-}
+const filterOptions = computed(() => [
+    {
+        value: "ALL" as const,
+        label: "Tous",
+        count: referenceTotals.value.count || journalStore.total,
+    },
+    {
+        value: "WIN" as const,
+        label: "Victoires",
+        count: referenceTotals.value.winCount,
+        activeClass:
+            "bg-white text-emerald-600 shadow-xs dark:bg-slate-800 dark:text-emerald-400 font-semibold",
+    },
+    {
+        value: "LOSS" as const,
+        label: "Défaites",
+        count: referenceTotals.value.lossCount,
+        activeClass:
+            "bg-white text-rose-600 shadow-xs dark:bg-slate-800 dark:text-rose-400 font-semibold",
+    },
+]);
 
 onMounted(async () => {
     await journalStore.loadInitial("ALL");
-
-    if (typeof IntersectionObserver !== "undefined") {
-        observer = new IntersectionObserver(
-            (entries) => {
-                const first = entries[0];
-                if (
-                    first?.isIntersecting &&
-                    journalStore.hasMore &&
-                    !journalStore.isLoadingMore &&
-                    !journalStore.isLoading
-                ) {
-                    journalStore.loadMore();
-                }
-            },
-            {
-                rootMargin: "200px",
-            }
-        );
-
-        if (sentinelEl.value) {
-            observer.observe(sentinelEl.value);
-        }
-    }
-});
-
-onBeforeUnmount(() => {
-    if (observer) {
-        observer.disconnect();
-        observer = null;
-    }
 });
 </script>
 
 <template>
-  <div class="space-y-6 animate-fadeIn">
-    <!-- Barre de retour et En-tête -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800 transition-colors">
-      <div>
-        <div class="flex items-center gap-2 mb-2">
-          <button
-            type="button"
-            @click="emit('navigate', 'SYNTHESIS')"
-            class="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1.5 transition cursor-pointer"
-          >
-            <span>←</span> Revenir à la Synthèse Financière
-          </button>
-        </div>
-        <div class="flex items-center gap-2.5">
-          <span class="text-2xl">📜</span>
-          <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
-            Journal Exhaustif des Positions Clôturées
-          </h2>
-          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/25">
-            {{ journalStore.total }} ARCHIVES
-          </span>
-        </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Grand livre historique complet des arbitrages résolus par l'oracle Polymarket • Défilement infini et filtres dynamiques
-        </p>
-      </div>
+  <div class="space-y-6">
+    <!-- En-tête -->
+    <AppPageHeader
+      title="Journal des Positions Clôturées"
+      subtitle="Grand livre historique complet des positions résolues et soldées sur Polymarket"
+      icon="scroll-text"
+    >
+      <template #before-title>
+        <button
+          type="button"
+          @click="emit('navigate', 'SYNTHESIS')"
+          class="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white inline-flex items-center gap-1.5 mb-2 transition cursor-pointer"
+        >
+          <AppIcon name="arrow-left" :size="13" />
+          <span>Revenir à la Synthèse</span>
+        </button>
+      </template>
 
-      <!-- Filtres Win / Loss -->
-      <div class="inline-flex items-center p-1 rounded-xl border bg-slate-100 border-slate-200 dark:bg-slate-950/60 dark:border-slate-800 text-xs shrink-0 self-start sm:self-auto">
-        <button
-          type="button"
-          @click="changeFilter('ALL')"
-          :class="[
-            'px-3.5 py-1.5 rounded-lg transition font-medium cursor-pointer',
-            journalStore.filterStatus === 'ALL'
-              ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          Tous ({{ journalStore.filterStatus === 'ALL' ? journalStore.total : journalStore.totals.count }})
-        </button>
-        <button
-          type="button"
-          @click="changeFilter('WIN')"
-          :class="[
-            'px-3.5 py-1.5 rounded-lg transition font-medium cursor-pointer',
-            journalStore.filterStatus === 'WIN'
-              ? 'bg-white text-emerald-600 shadow-xs dark:bg-slate-800 dark:text-emerald-400 font-semibold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          Victoires ({{ journalStore.totals.winCount }})
-        </button>
-        <button
-          type="button"
-          @click="changeFilter('LOSS')"
-          :class="[
-            'px-3.5 py-1.5 rounded-lg transition font-medium cursor-pointer',
-            journalStore.filterStatus === 'LOSS'
-              ? 'bg-white text-rose-600 shadow-xs dark:bg-slate-800 dark:text-rose-400 font-semibold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          Défaites ({{ journalStore.totals.lossCount }})
-        </button>
-      </div>
+      <template #badges>
+        <AppBadge variant="info" size="sm">
+          {{ journalStore.total }} archives
+        </AppBadge>
+      </template>
+
+      <template #actions>
+        <AppSegmentedFilter
+          :model-value="journalStore.filterStatus"
+          :options="filterOptions"
+          size="sm"
+          @update:model-value="(val) => journalStore.setFilterStatus(val)"
+        />
+      </template>
+    </AppPageHeader>
+
+    <!-- 4 KPIs synthétiques -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatKpiCard
+        label="Payout Reçu"
+        icon="coins"
+        icon-class="text-amber-500"
+        :value="formatCurrency(journalStore.totals.totalPayout)"
+        subtitle="Montant brut racheté par Polymarket"
+      />
+
+      <StatKpiCard
+        label="Gains Cumulés"
+        icon="trending-up"
+        icon-class="text-emerald-500"
+        :value="`+${formatCurrency(journalStore.totals.totalGains)}`"
+        value-class="text-emerald-600 dark:text-emerald-400"
+        :badge-text="`${journalStore.totals.winCount}W`"
+        badge-variant="success"
+        border-class="border-emerald-500/20"
+        subtitle="Profits nets des paris victorieux"
+      />
+
+      <StatKpiCard
+        label="Pertes Cumulées"
+        icon="trending-down"
+        icon-class="text-rose-500"
+        :value="`-${formatCurrency(journalStore.totals.totalLosses)}`"
+        value-class="text-rose-600 dark:text-rose-400"
+        :badge-text="`${journalStore.totals.lossCount}L`"
+        badge-variant="danger"
+        border-class="border-rose-500/20"
+        subtitle="Mises perdues sur résolutions contraires"
+      />
+
+      <StatKpiCard
+        label="Bilan Net (PnL)"
+        icon="scale"
+        :value="formatSignedCurrency(journalStore.totals.netPnl)"
+        :value-class="
+          journalStore.totals.netPnl >= 0
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-rose-600 dark:text-rose-400'
+        "
+        :badge-text="formatSignedPercent(journalStore.totals.roiPercent)"
+        :badge-variant="journalStore.totals.netPnl >= 0 ? 'success' : 'danger'"
+        :subtitle="`Sur ${formatCurrency(journalStore.totals.totalInvested)} misés (${journalStore.totals.winRate.toFixed(1)}% W)`"
+      />
     </div>
 
-    <!-- Bandeau Synthèse des Marchés (Totaux Globaux Cumulés) -->
-    <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl p-5 shadow-xs transition-colors">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <!-- 1. Payout Reçu -->
-        <div class="bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/80 dark:border-slate-800/80 rounded-xl p-3.5 shadow-2xs">
-          <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-            <span class="font-medium flex items-center gap-1.5">
-              <span>💰</span> Payout Reçu
-            </span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold">
-              ENCAISSÉ
-            </span>
-          </div>
-          <div class="text-xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
-            ${{ journalStore.totals.totalPayout.toFixed(2) }}
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            Montant brut racheté par Polymarket
-          </p>
-        </div>
-
-        <!-- 2. Total Gains (Victoires) -->
-        <div class="bg-slate-50/70 dark:bg-slate-950/40 border border-emerald-500/20 rounded-xl p-3.5 shadow-2xs">
-          <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-            <span class="font-medium flex items-center gap-1.5">
-              <span>🟢</span> Gains Cumulés
-            </span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-              +{{ journalStore.totals.winCount }} WINS
-            </span>
-          </div>
-          <div class="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
-            +${{ journalStore.totals.totalGains.toFixed(2) }}
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            Profits nets des paris victorieux
-          </p>
-        </div>
-
-        <!-- 3. Total Pertes (Défaites) -->
-        <div class="bg-slate-50/70 dark:bg-slate-950/40 border border-rose-500/20 rounded-xl p-3.5 shadow-2xs">
-          <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-            <span class="font-medium flex items-center gap-1.5">
-              <span>🔴</span> Pertes Cumulées
-            </span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 font-mono font-bold">
-              -{{ journalStore.totals.lossCount }} LOSS
-            </span>
-          </div>
-          <div class="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 tracking-tight">
-            -${{ journalStore.totals.totalLosses.toFixed(2) }}
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            Mises perdues sur résolutions contraires
-          </p>
-        </div>
-
-        <!-- 4. Résultat Net (PnL) -->
-        <div class="bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/80 dark:border-slate-800/80 rounded-xl p-3.5 shadow-2xs">
-          <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-            <span class="font-medium flex items-center gap-1.5">
-              <span>⚖️</span> Bilan Net (PnL)
-            </span>
-            <span
-              class="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold"
-              :class="journalStore.totals.netPnl >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
-            >
-              {{ journalStore.totals.roiPercent >= 0 ? '+' : '' }}{{ journalStore.totals.roiPercent.toFixed(1) }} %
-            </span>
-          </div>
-          <div
-            class="text-xl font-bold font-mono tracking-tight"
-            :class="journalStore.totals.netPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-          >
-            {{ journalStore.totals.netPnl >= 0 ? '+' : '' }}${{ journalStore.totals.netPnl.toFixed(2) }}
-          </div>
-          <p class="text-[10px] text-slate-400 mt-1">
-            Sur ${{ journalStore.totals.totalInvested.toFixed(2) }} misés ({{ journalStore.totals.winRate.toFixed(1) }}% Victoires)
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Table Exhaustive avec Infinite Scroll -->
-    <div class="bg-white dark:bg-slate-900/60 backdrop-blur border border-slate-200/90 dark:border-slate-800/70 rounded-2xl overflow-hidden shadow-xs transition-colors">
-      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+    <!-- Tableau Paginé -->
+    <div
+      class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-xs transition-colors"
+    >
+      <div
+        class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4"
+      >
         <h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <span>📑</span> Liste Complète des Positions Clôturées
-          <span class="text-xs font-normal text-slate-500 dark:text-slate-400 font-mono">
-            ({{ journalStore.items.length }} affichée{{ journalStore.items.length > 1 ? 's' : '' }} sur {{ journalStore.total }})
-          </span>
+          <AppIcon name="layers" :size="15" class="text-rose-500" />
+          <span>Liste des Positions Clôturées</span>
         </h4>
-        <span class="text-xs text-slate-400">
-          Défilez vers le bas pour charger automatiquement la suite
+        <span class="text-xs font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+          Page {{ journalStore.page }} / {{ journalStore.totalPages }}
         </span>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-xs">
           <thead>
-            <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+            <tr
+              class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]"
+            >
               <th class="py-3 px-6">Marché / Événement</th>
               <th class="py-3 px-4 whitespace-nowrap">Issue</th>
               <th class="py-3 px-4 whitespace-nowrap">Parts</th>
-              <th class="py-3 px-4 whitespace-nowrap">Mise Engagée</th>
-              <th class="py-3 px-4 whitespace-nowrap">Prix Moyen</th>
-              <th class="py-3 px-4 whitespace-nowrap">Payout Reçu</th>
-              <th class="py-3 px-4 whitespace-nowrap">Gain Net (PnL)</th>
+              <th class="py-3 px-4 whitespace-nowrap">Mise</th>
+              <th class="py-3 px-4 whitespace-nowrap">Prix Moy.</th>
+              <th class="py-3 px-4 whitespace-nowrap">Payout</th>
+              <th class="py-3 px-4 whitespace-nowrap">Gain Net</th>
               <th class="py-3 px-6 text-right whitespace-nowrap">Résultat</th>
             </tr>
           </thead>
+
           <tbody class="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300 font-mono">
             <tr
               v-for="pos in journalStore.items"
               :key="pos.id"
               class="hover:bg-slate-50/80 dark:hover:bg-slate-800/20 transition"
             >
-              <td class="py-3.5 px-6 font-sans">
+              <td class="py-3.5 px-6 font-sans max-w-[300px]">
                 <a
                   :href="getPolymarketUrl(pos)"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1 flex items-center gap-1.5"
+                  class="font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 inline-flex items-center gap-1.5 max-w-full"
+                  :title="pos.marketQuestion"
                 >
-                  {{ pos.marketQuestion }}
-                  <span class="text-[10px] text-slate-400">↗</span>
+                  <span class="truncate">{{ pos.marketQuestion }}</span>
+                  <AppIcon name="arrow-up-right" :size="12" class="text-slate-400 shrink-0" />
                 </a>
-                <span class="text-[11px] text-slate-400 font-sans block mt-0.5">
-                  Clôturé le {{ formatDate(pos.closedAt || pos.updatedAt) }}
+                <span class="text-[11px] text-slate-400 font-sans block mt-0.5 whitespace-nowrap">
+                  Clôturé le {{ formatTimestampDateTime(pos.closedAt || pos.updatedAt) }}
                 </span>
               </td>
 
               <td class="py-3.5 px-4 font-sans whitespace-nowrap">
-                <span
-                  class="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap"
-                  :title="pos.outcomeLabel"
-                >
+                <AppBadge variant="info" size="xs" rounded="md" :truncate="true" :title="pos.outcomeLabel">
                   {{ pos.outcomeLabel }}
-                </span>
+                </AppBadge>
               </td>
 
               <td class="py-3.5 px-4 text-slate-900 dark:text-white whitespace-nowrap">
@@ -275,135 +202,146 @@ onBeforeUnmount(() => {
               </td>
 
               <td class="py-3.5 px-4 whitespace-nowrap">
-                ${{ (pos.totalInvestedUsdc || 0).toFixed(2) }}
+                {{ formatCurrency(pos.totalInvestedUsdc) }}
               </td>
 
               <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                ${{ (pos.avgEntryPrice || 0).toFixed(3) }}
+                {{ formatCurrency(pos.avgEntryPrice, 3) }}
               </td>
 
               <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                ${{ (pos.settledPayoutUsdc || 0).toFixed(2) }}
+                {{ formatCurrency(pos.settledPayoutUsdc) }}
               </td>
 
               <td
                 class="py-3.5 px-4 font-bold whitespace-nowrap"
-                :class="(pos.realizedPnlUsdc ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+                :class="
+                  (pos.realizedPnlUsdc ?? 0) >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                "
               >
-                {{ (pos.realizedPnlUsdc ?? 0) >= 0 ? '+' : '' }}${{ (pos.realizedPnlUsdc ?? 0).toFixed(2) }}
+                {{ formatSignedCurrency(pos.realizedPnlUsdc) }}
               </td>
 
               <td class="py-3.5 px-6 text-right font-sans whitespace-nowrap">
-                <div class="flex flex-col items-end gap-1">
-                  <span
-                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap"
-                    :class="pos.closeReason === 'RESOLVED_WIN'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'"
+                <div class="inline-flex items-center justify-end gap-1.5">
+                  <AppBadge
+                    :variant="getClosedPositionOutcome(pos).variant"
+                    :icon="getClosedPositionOutcome(pos).icon"
+                    size="xs"
                   >
-                    {{ pos.closeReason === 'RESOLVED_WIN' ? '🏆 VICTOIRE' : '❌ DÉFAITE' }}
-                  </span>
+                    {{ getClosedPositionOutcome(pos).label }}
+                  </AppBadge>
 
-                  <!-- Statut de réclamation Auto-Redeem pour les victoires -->
                   <template v-if="pos.closeReason === 'RESOLVED_WIN'">
                     <a
                       v-if="pos.settleTxHash && pos.settleTxHash.startsWith('0x')"
                       :href="'https://polygonscan.com/tx/' + pos.settleTxHash"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 font-mono"
-                      title="Gain réclamé sur Polygon - Voir la transaction"
+                      title="Voir la transaction de rachat sur Polygonscan"
                     >
-                      <span>⚡ Réclamé on-chain</span> ↗
+                      <AppBadge variant="success" icon="external-link" size="xs" rounded="md">
+                        Réclamé
+                      </AppBadge>
                     </a>
-                    <span
+                    <AppBadge
                       v-else-if="pos.settleTxHash"
-                      class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-mono"
+                      variant="neutral"
+                      icon="check"
+                      size="xs"
+                      rounded="md"
                       title="Gain crédité (Simulation)"
                     >
-                      ⚡ Réclamé (Simu)
-                    </span>
-                    <span
+                      Simu
+                    </AppBadge>
+                    <AppBadge
                       v-else
-                      class="text-[10px] text-amber-500 font-sans"
+                      variant="warning"
+                      icon="clock"
+                      size="xs"
+                      rounded="md"
+                      title="Réclamation Auto-Redeem en attente"
                     >
-                      ⏳ Réclamation en cours...
-                    </span>
+                      En cours
+                    </AppBadge>
                   </template>
                 </div>
               </td>
             </tr>
 
-            <!-- Empty State -->
+            <tr v-if="journalStore.isLoading && journalStore.items.length === 0">
+              <td colspan="8" class="py-12 text-center text-slate-400 font-sans">
+                <span class="inline-flex items-center gap-2 text-xs">
+                  <AppIcon name="refresh-cw" :size="14" class="animate-spin" />
+                  Chargement des archives...
+                </span>
+              </td>
+            </tr>
+
             <tr v-if="!journalStore.isLoading && journalStore.items.length === 0">
-              <td colspan="8" class="py-14 text-center text-slate-400 text-xs font-sans">
-                <div class="text-3xl mb-2">🏁</div>
-                <p class="font-semibold text-slate-700 dark:text-slate-300">Aucune position clôturée pour ce filtre</p>
-                <p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1">
-                  Sélectionnez un autre filtre pour visualiser d'autres résultats.
-                </p>
+              <td colspan="8">
+                <AppEmptyState
+                  icon="scroll-text"
+                  title="Aucune position clôturée pour ce filtre"
+                  description="Sélectionnez un autre filtre pour visualiser d'autres résultats."
+                />
               </td>
             </tr>
           </tbody>
 
-          <!-- Pied de table / Totalisation des éléments affichés -->
+          <!-- Pied de tableau : Totaux globaux -->
           <tfoot
             v-if="journalStore.items.length > 0"
             class="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-950/80 font-mono text-xs font-bold text-slate-900 dark:text-white"
           >
             <tr>
-              <td class="py-3.5 px-6 font-sans">
-                <div class="flex items-center gap-2">
-                  <span>📊 TOTAL CUMULÉ DU JOURNAL</span>
-                  <span class="text-[10px] font-normal text-slate-500 dark:text-slate-400 font-mono">
-                    ({{ journalStore.totals.count }} marché{{ journalStore.totals.count > 1 ? 's' : '' }})
-                  </span>
+              <td class="py-3.5 px-6 font-sans whitespace-nowrap">
+                <div class="inline-flex items-center gap-2">
+                  <AppIcon name="bar-chart" :size="14" class="text-rose-500" />
+                  <span>TOTAL CUMULÉ ({{ journalStore.totals.count }})</span>
                 </div>
               </td>
               <td class="py-3.5 px-4 font-sans text-slate-400">—</td>
-              <td class="py-3.5 px-4">{{ journalStore.totals.totalShares.toFixed(2) }}</td>
-              <td class="py-3.5 px-4">${{ journalStore.totals.totalInvested.toFixed(2) }}</td>
-              <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                ${{ journalStore.totals.avgEntryPrice.toFixed(3) }}
+              <td class="py-3.5 px-4 whitespace-nowrap">{{ journalStore.totals.totalShares.toFixed(2) }}</td>
+              <td class="py-3.5 px-4 whitespace-nowrap">{{ formatCurrency(journalStore.totals.totalInvested) }}</td>
+              <td class="py-3.5 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                {{ formatCurrency(journalStore.totals.avgEntryPrice, 3) }}
               </td>
-              <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                ${{ journalStore.totals.totalPayout.toFixed(2) }}
-              </td>
+              <td class="py-3.5 px-4 whitespace-nowrap">{{ formatCurrency(journalStore.totals.totalPayout) }}</td>
               <td
-                class="py-3.5 px-4 font-bold"
-                :class="journalStore.totals.netPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+                class="py-3.5 px-4 whitespace-nowrap"
+                :class="
+                  journalStore.totals.netPnl >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                "
               >
-                {{ journalStore.totals.netPnl >= 0 ? '+' : '' }}${{ journalStore.totals.netPnl.toFixed(2) }}
+                {{ formatSignedCurrency(journalStore.totals.netPnl) }}
               </td>
-              <td class="py-3.5 px-6 text-right font-sans">
-                <span
-                  class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                  :class="journalStore.totals.winRate >= 50
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'"
+              <td class="py-3.5 px-6 text-right font-sans whitespace-nowrap">
+                <AppBadge
+                  :variant="journalStore.totals.winRate >= 50 ? 'success' : 'danger'"
+                  size="xs"
                 >
-                  {{ journalStore.totals.winRate.toFixed(1) }}% Victoires
-                </span>
+                  {{ journalStore.totals.winRate.toFixed(1) }}% W
+                </AppBadge>
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      <!-- Sentinel & Infinite Scroll Loader / Status -->
-      <div ref="sentinelEl" class="py-6 px-4 text-center border-t border-slate-100 dark:border-slate-800/60">
-        <div v-if="journalStore.isLoadingMore || journalStore.isLoading" class="flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-          <span class="animate-spin text-base">🔄</span>
-          <span>Chargement des positions suivantes...</span>
-        </div>
-        <div v-else-if="!journalStore.hasMore && journalStore.items.length > 0" class="text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
-          <span>✓</span>
-          <span>Fin du journal : l'ensemble des <strong>{{ journalStore.total }}</strong> positions clôturées a été chargé.</span>
-        </div>
-        <div v-else-if="journalStore.hasMore" class="text-[11px] text-slate-400">
-          Faites défiler pour charger plus...
-        </div>
-      </div>
+      <AppPagination
+        :page="journalStore.page"
+        :page-size="journalStore.pageSize"
+        :total-items="journalStore.total"
+        :total-pages="journalStore.totalPages"
+        item-label="positions clôturées"
+        @update:page="(p) => journalStore.setPage(p)"
+        @update:page-size="(s) => journalStore.setPageSize(s)"
+      />
     </div>
   </div>
 </template>

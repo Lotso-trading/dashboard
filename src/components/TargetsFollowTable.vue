@@ -1,73 +1,99 @@
 <script setup lang="ts">
-import type { TargetTrader } from "@lotso-trading/shared";
+import type { SortOrder, TargetTrader } from "@lotso-trading/shared";
 import { computed, ref } from "vue";
+import { usePagination } from "../composables/use-pagination.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
-import AddTargetModal from "./AddTargetModal.vue";
+import { formatCurrency, formatSignedCurrency, truncateAddress } from "../utils/formatters.ts";
+import {
+    computeTargetPerformance,
+    sortTargets,
+    type TargetPerformanceStats,
+    type TargetSortField,
+} from "../utils/targets-sort.ts";
+import TargetFormModal from "./TargetFormModal.vue";
+import AppBadge from "./ui/AppBadge.vue";
+import AppEmptyState from "./ui/AppEmptyState.vue";
+import AppIcon from "./ui/AppIcon.vue";
+import AppPagination from "./ui/AppPagination.vue";
+import AppSegmentedFilter from "./ui/AppSegmentedFilter.vue";
+import AppToggle from "./ui/AppToggle.vue";
+import SortableTh from "./ui/SortableTh.vue";
 
 const targetsStore = useTargetsStore();
 const positionsStore = usePositionsStore();
+
 const isModalOpen = ref(false);
+const editingTarget = ref<TargetTrader | null>(null);
 const viewMode = ref<"CARDS" | "TABLE">("CARDS");
+const sortBy = ref<TargetSortField>("realizedPnl");
+const sortOrder = ref<SortOrder>("desc");
 
-function getTargetPerformance(target: TargetTrader) {
-    const addr = target.address.toLowerCase();
+const viewOptions = [
+    { value: "CARDS" as const, label: "Cartes", icon: "layout-grid" as const },
+    { value: "TABLE" as const, label: "Liste", icon: "list" as const },
+];
 
-    // Positions fermées associées à cette baleine dans le store local
-    const closedForTarget = positionsStore.closedPositions.filter(
-        (p) => p.targetAddress?.toLowerCase() === addr
-    );
-
-    const localWins = closedForTarget.filter(
-        (p) => p.closeReason === "RESOLVED_WIN" || (p.realizedPnlUsdc ?? 0) > 0
-    ).length;
-
-    const localLosses = closedForTarget.filter(
-        (p) => p.closeReason === "RESOLVED_LOSS" || (p.realizedPnlUsdc ?? 0) < 0
-    ).length;
-
-    const localPnl = closedForTarget.reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
-
-    // Privilégier les stats agrégées serveur, ou fallback dynamique sur les positions fermées locales
-    const wins =
-        target.stats.wonTrades !== undefined && target.stats.wonTrades > 0
-            ? target.stats.wonTrades
-            : localWins;
-
-    const losses =
-        target.stats.lostTrades !== undefined && target.stats.lostTrades > 0
-            ? target.stats.lostTrades
-            : localLosses;
-
-    const totalClosed = wins + losses;
-
-    const realizedPnl =
-        Math.abs(target.stats.realizedPnlUsdc) > 0.001 ? target.stats.realizedPnlUsdc : localPnl;
-
-    const winRate =
-        totalClosed > 0 ? (wins / totalClosed) * 100 : (target.stats.winRatePercent ?? 0);
-
-    return {
-        trades: target.stats.totalCopiedTrades,
-        volume: target.stats.totalCopiedVolumeUsdc,
-        realizedPnl,
-        wins,
-        losses,
-        totalClosed,
-        winRate,
-    };
-}
+const sortOptions: { value: TargetSortField; label: string }[] = [
+    { value: "realizedPnl", label: "Gain Net" },
+    { value: "winRate", label: "% Victoire" },
+    { value: "wl", label: "W / L" },
+    { value: "trades", label: "Trades" },
+];
 
 const targetsPerformance = computed(() => {
-    const map = new Map<string, ReturnType<typeof getTargetPerformance>>();
+    const map = new Map<string, TargetPerformanceStats>();
     for (const t of targetsStore.targets) {
-        map.set(t.id, getTargetPerformance(t));
+        map.set(t.id, computeTargetPerformance(t, positionsStore.closedPositions));
     }
     return map;
 });
 
-async function handleToggle(id: string, currentStatus: boolean): Promise<void> {
-    await targetsStore.toggleTarget(id, !currentStatus);
+const sortedTargets = computed(() => {
+    return sortTargets(
+        targetsStore.targets,
+        targetsPerformance.value,
+        sortBy.value,
+        sortOrder.value
+    );
+});
+
+const { page, pageSize, totalItems, totalPages, paginatedItems, setPage, setPageSize } =
+    usePagination(sortedTargets);
+
+function toggleSort(field: string): void {
+    const typedField = field as TargetSortField;
+    if (sortBy.value === typedField) {
+        sortOrder.value = sortOrder.value === "desc" ? "asc" : "desc";
+    } else {
+        sortBy.value = typedField;
+        sortOrder.value = "desc";
+    }
+    setPage(1);
+}
+
+function toggleSortDirection(): void {
+    sortOrder.value = sortOrder.value === "desc" ? "asc" : "desc";
+    setPage(1);
+}
+
+function openCreateModal(): void {
+    editingTarget.value = null;
+    isModalOpen.value = true;
+}
+
+function openEditModal(target: TargetTrader): void {
+    editingTarget.value = target;
+    isModalOpen.value = true;
+}
+
+function closeModal(): void {
+    isModalOpen.value = false;
+    editingTarget.value = null;
+}
+
+async function handleToggle(id: string, nextStatus: boolean): Promise<void> {
+    await targetsStore.toggleTarget(id, nextStatus);
 }
 
 async function handleDelete(id: string, alias: string): Promise<void> {
@@ -78,351 +104,411 @@ async function handleDelete(id: string, alias: string): Promise<void> {
 </script>
 
 <template>
-  <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-xs transition-colors">
+  <div
+    class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-xs transition-colors"
+  >
     <!-- Header -->
-    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+    <div
+      class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4"
+    >
       <div>
-        <div class="flex items-center gap-2.5">
-          <span class="text-xl">🎯</span>
+        <div class="flex items-center flex-wrap gap-2.5">
+          <AppIcon name="target" :size="18" class="text-rose-500" />
           <h3 class="text-base font-bold text-slate-900 dark:text-white">
             Cibles & Baleines sous les Radars
           </h3>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 font-mono font-semibold">
+          <AppBadge variant="brand" size="xs">
             {{ targetsStore.targets.length }} traquées
-          </span>
+          </AppBadge>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Surveillance silencieuse des portefeuilles cibles • Réplication chirurgicale sans impact de marché
+          Surveillance silencieuse des portefeuilles cibles et réplication paramétrable
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
-        <!-- View Switcher (Cards / Table) -->
-        <div class="bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] p-0.5 rounded-xl flex items-center text-xs">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Contrôle de tri (commun aux vues Cartes & Tableau) -->
+        <div class="flex items-center gap-1.5 text-xs">
+          <select
+            v-model="sortBy"
+            @change="setPage(1)"
+            aria-label="Critère de tri des baleines"
+            class="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer"
+          >
+            <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
+              Tri : {{ opt.label }}
+            </option>
+          </select>
+
           <button
             type="button"
-            @click="viewMode = 'CARDS'"
-            :class="[
-              'px-2.5 py-1 rounded-lg transition font-medium flex items-center gap-1.5 cursor-pointer',
-              viewMode === 'CARDS'
-                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
+            @click="toggleSortDirection"
+            :title="sortOrder === 'desc' ? 'Ordre décroissant (cliquer pour inverser)' : 'Ordre croissant (cliquer pour inverser)'"
+            class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-mono text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition"
           >
-            <span>🗂️</span>
-            <span>Cartes</span>
-          </button>
-          <button
-            type="button"
-            @click="viewMode = 'TABLE'"
-            :class="[
-              'px-2.5 py-1 rounded-lg transition font-medium flex items-center gap-1.5 cursor-pointer',
-              viewMode === 'TABLE'
-                ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            ]"
-          >
-            <span>📋</span>
-            <span>Liste</span>
+            <AppIcon :name="sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'" :size="13" />
+            <span>{{ sortOrder === "asc" ? "ASC" : "DESC" }}</span>
           </button>
         </div>
 
+        <AppSegmentedFilter v-model="viewMode" :options="viewOptions" size="xs" />
+
         <button
           type="button"
-          @click="isModalOpen = true"
-          class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+          @click="openCreateModal"
+          class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm transition cursor-pointer whitespace-nowrap"
         >
-          <span>+</span> Traquer une Baleine
+          <AppIcon name="plus" :size="14" />
+          <span>Ajouter une baleine</span>
         </button>
       </div>
     </div>
 
-    <!-- VIEW 1: BENTO PROFILE CARDS -->
+    <!-- VUE CARTES -->
     <div v-if="viewMode === 'CARDS'" class="p-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div v-if="paginatedItems.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div
-          v-for="target in targetsStore.targets"
+          v-for="target in paginatedItems"
           :key="target.id"
-          class="bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/90 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/[0.12] rounded-2xl p-5 space-y-4 transition-all duration-200 flex flex-col justify-between group shadow-xs hover:shadow-md"
+          class="bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/90 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/[0.12] rounded-2xl p-5 space-y-4 transition-all flex flex-col justify-between group shadow-xs hover:shadow-md"
         >
-          <!-- Top Row: Avatar + Alias + iOS Toggle -->
+          <!-- En-tête carte -->
           <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/10 border border-blue-500/30 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-sm shadow-xs">
+            <div class="flex items-center gap-3 min-w-0">
+              <div
+                class="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/10 border border-blue-500/30 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-sm shrink-0"
+              >
                 {{ target.alias.slice(0, 1).toUpperCase() }}
               </div>
-              <div>
-                <div class="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition text-sm">
+              <div class="min-w-0">
+                <div
+                  class="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition text-sm truncate"
+                  :title="target.alias"
+                >
                   {{ target.alias }}
                 </div>
                 <div class="flex items-center gap-2 font-mono text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  <span>{{ target.address.slice(0, 6) }}...{{ target.address.slice(-4) }}</span>
+                  <span>{{ truncateAddress(target.address) }}</span>
                   <a
                     :href="`https://polymarket.com/profile/${target.address}`"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="text-blue-500 hover:underline inline-flex items-center gap-0.5 text-[10px]"
+                    class="text-blue-500 hover:underline inline-flex items-center gap-0.5 text-[10px] whitespace-nowrap"
                     title="Voir le profil sur Polymarket"
                   >
-                    Polymarket ↗
+                    <span>Profil</span>
+                    <AppIcon name="arrow-up-right" :size="11" />
                   </a>
                 </div>
               </div>
             </div>
 
-            <!-- iOS Toggle Switch -->
-            <button
-              type="button"
-              @click="handleToggle(target.id, target.enabled)"
-              :title="target.enabled ? 'Cliquer pour mettre en pause' : 'Cliquer pour activer'"
-              :class="[
-                'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                target.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  target.enabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
+            <AppToggle
+              :model-value="target.enabled"
+              active-color="emerald"
+              size="sm"
+              :title="target.enabled ? 'Mettre en pause' : 'Activer'"
+              @update:model-value="(val) => handleToggle(target.id, val)"
+            />
           </div>
 
-          <!-- Configuration Pills -->
-          <div class="flex items-center gap-2 flex-wrap text-xs font-mono">
-            <span class="px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 font-semibold">
-              Poids : {{ target.weightMultiplier.toFixed(1) }}x
-            </span>
-            <span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-              Plafond : {{ target.maxUsdcPerTrade ? `$${target.maxUsdcPerTrade}` : 'Défaut ($50)' }}
-            </span>
-            <span
-              :class="[
-                'px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1',
-                target.enabled
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                  : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-              ]"
+          <!-- Badges de configuration (1 ligne) -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <AppBadge variant="info" size="xs" rounded="md">
+              {{ target.weightMultiplier.toFixed(1) }}x
+            </AppBadge>
+            <AppBadge variant="neutral" size="xs" rounded="md">
+              Max {{ target.maxUsdcPerTrade ? `$${target.maxUsdcPerTrade}` : "Défaut" }}
+            </AppBadge>
+            <AppBadge
+              :variant="target.enabled ? 'success' : 'neutral'"
+              size="xs"
+              :dot="true"
+              :pulse="target.enabled"
             >
-              <span class="h-1.5 w-1.5 rounded-full" :class="target.enabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'" />
-              {{ target.enabled ? 'Actif' : 'En Pause' }}
-            </span>
-            <span
+              {{ target.enabled ? "Actif" : "Pause" }}
+            </AppBadge>
+            <AppBadge
               v-if="(targetsPerformance.get(target.id)?.totalClosed ?? 0) > 0"
-              class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30"
+              variant="indigo"
+              size="xs"
             >
-              Win Rate : {{ targetsPerformance.get(target.id)?.winRate.toFixed(0) }}%
-            </span>
+              {{ (targetsPerformance.get(target.id)?.winRate ?? 0).toFixed(0) }}% W
+            </AppBadge>
           </div>
 
-          <!-- 4-Metrics Bento Strip -->
-          <div class="grid grid-cols-4 gap-1.5 bg-white dark:bg-black/30 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.04] text-center font-mono">
+          <!-- 4 Métriques -->
+          <div
+            class="grid grid-cols-4 gap-1.5 bg-white dark:bg-black/30 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.04] text-center font-mono"
+          >
             <div>
-              <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">Trades</div>
+              <div class="text-[10px] text-slate-400 font-sans">Trades</div>
               <div class="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">
                 {{ targetsPerformance.get(target.id)?.trades ?? 0 }}
               </div>
             </div>
             <div class="border-l border-slate-200/80 dark:border-white/[0.04]">
-              <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">W / L</div>
-              <div class="text-xs font-bold mt-0.5 flex items-center justify-center gap-0.5">
+              <div class="text-[10px] text-slate-400 font-sans">W / L</div>
+              <div class="text-xs font-bold mt-0.5 whitespace-nowrap">
                 <span class="text-emerald-600 dark:text-emerald-400">{{ targetsPerformance.get(target.id)?.wins ?? 0 }}W</span>
-                <span class="text-slate-400 text-[10px]">-</span>
+                <span class="text-slate-400 mx-0.5">-</span>
                 <span class="text-rose-600 dark:text-rose-400">{{ targetsPerformance.get(target.id)?.losses ?? 0 }}L</span>
               </div>
             </div>
             <div class="border-l border-slate-200/80 dark:border-white/[0.04]">
-              <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">Volume</div>
+              <div class="text-[10px] text-slate-400 font-sans">Volume</div>
               <div class="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">
-                ${{ (targetsPerformance.get(target.id)?.volume ?? 0).toFixed(0) }}
+                {{ formatCurrency(targetsPerformance.get(target.id)?.volume, 0) }}
               </div>
             </div>
             <div class="border-l border-slate-200/80 dark:border-white/[0.04]">
-              <div class="text-[10px] text-slate-400 dark:text-slate-500 font-sans">PnL Net</div>
+              <div class="text-[10px] text-slate-400 font-sans">PnL</div>
               <div
                 class="text-xs font-bold mt-0.5"
-                :class="(targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+                :class="
+                  (targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                "
               >
-                {{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? '+' : '' }}${{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0).toFixed(2) }}
+                {{ formatSignedCurrency(targetsPerformance.get(target.id)?.realizedPnl) }}
               </div>
             </div>
           </div>
 
-          <!-- Card Footer -->
-          <div class="pt-1 flex items-center justify-between text-xs border-t border-slate-100 dark:border-white/[0.04]">
+          <!-- Actions carte -->
+          <div
+            class="pt-2 flex items-center justify-between text-xs border-t border-slate-100 dark:border-white/[0.04]"
+          >
             <a
               :href="`https://polymarket.com/profile/${target.address}`"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-mono text-[11px]"
+              class="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 font-mono text-[11px]"
             >
-              <span>Voir transactions</span>
-              <span>↗</span>
+              <span>Transactions</span>
+              <AppIcon name="arrow-up-right" :size="12" />
             </a>
 
-            <button
-              type="button"
-              @click="handleDelete(target.id, target.alias)"
-              class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs flex items-center gap-1 transition p-1 rounded-lg hover:bg-rose-500/10 cursor-pointer"
-              title="Arrêter de suivre cette baleine"
-            >
-              <span>🗑️</span>
-              <span>Retirer</span>
-            </button>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                @click="openEditModal(target)"
+                class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 text-xs inline-flex items-center gap-1 transition px-2 py-1 rounded-lg hover:bg-blue-500/10 cursor-pointer"
+                title="Modifier cette baleine"
+              >
+                <AppIcon name="pencil" :size="13" />
+                <span>Modifier</span>
+              </button>
+
+              <button
+                type="button"
+                @click="handleDelete(target.id, target.alias)"
+                class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs inline-flex items-center gap-1 transition px-2 py-1 rounded-lg hover:bg-rose-500/10 cursor-pointer"
+                title="Supprimer cette baleine"
+              >
+                <AppIcon name="trash" :size="13" />
+              </button>
+            </div>
           </div>
         </div>
-
-        <!-- Empty State in Cards Mode -->
-        <div
-          v-if="targetsStore.targets.length === 0"
-          class="col-span-full text-center py-12 text-slate-400 border border-dashed border-slate-200 dark:border-white/[0.1] rounded-2xl"
-        >
-          <div class="text-3xl mb-2">🎯</div>
-          <p class="font-medium text-slate-700 dark:text-slate-300 text-sm">Aucune cible sous surveillance pour le moment</p>
-          <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Traquer une Baleine" pour activer la réplication furtive d'un trader.</p>
-        </div>
       </div>
+
+      <AppEmptyState
+        v-else
+        icon="target"
+        title="Aucune cible sous surveillance"
+        description="Cliquez sur « Ajouter une baleine » pour activer la réplication d'un portefeuille Polymarket."
+      />
     </div>
 
-    <!-- VIEW 2: TABLEAU PRO -->
+    <!-- VUE TABLEAU -->
     <div v-else class="overflow-x-auto">
       <table class="w-full text-left border-collapse text-xs">
         <thead>
-          <tr class="border-b border-slate-200 dark:border-slate-800/60 bg-slate-50/70 dark:bg-[#0B0E14]/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-            <th class="py-3 px-6">Baleine / Alias</th>
-            <th class="py-3 px-4">Statut</th>
-            <th class="py-3 px-4">Poids</th>
-            <th class="py-3 px-4">Plafond USDC</th>
-            <th class="py-3 px-4">Trades Copiés</th>
-            <th class="py-3 px-4">W / L</th>
-            <th class="py-3 px-4">Volume Généré</th>
-            <th class="py-3 px-4">PnL Réalisé</th>
-            <th class="py-3 px-6 text-right">Actions</th>
+          <tr
+            class="border-b border-slate-200 dark:border-slate-800/60 bg-slate-50/70 dark:bg-[#0B0E14]/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]"
+          >
+            <th class="py-3 px-6 whitespace-nowrap">Baleine / Alias</th>
+            <th class="py-3 px-4 whitespace-nowrap">Statut</th>
+            <th class="py-3 px-4 whitespace-nowrap">Poids</th>
+            <th class="py-3 px-4 whitespace-nowrap">Plafond</th>
+            <SortableTh
+              label="Trades"
+              field="trades"
+              :active-field="sortBy"
+              :sort-order="sortOrder"
+              @sort="toggleSort"
+            />
+            <SortableTh
+              label="W / L"
+              field="wl"
+              :active-field="sortBy"
+              :sort-order="sortOrder"
+              @sort="toggleSort"
+            />
+            <SortableTh
+              label="% Victoire"
+              field="winRate"
+              :active-field="sortBy"
+              :sort-order="sortOrder"
+              @sort="toggleSort"
+            />
+            <th class="py-3 px-4 whitespace-nowrap">Volume</th>
+            <SortableTh
+              label="Gain Net"
+              field="realizedPnl"
+              :active-field="sortBy"
+              :sort-order="sortOrder"
+              @sort="toggleSort"
+            />
+            <th class="py-3 px-6 text-right whitespace-nowrap">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-200">
           <tr
-            v-for="target in targetsStore.targets"
+            v-for="target in paginatedItems"
             :key="target.id"
             class="hover:bg-slate-50/80 dark:hover:bg-slate-800/20 transition group"
           >
-            <!-- Nom et Adresse -->
-            <td class="py-3 px-6">
+            <td class="py-3 px-6 whitespace-nowrap">
               <div class="flex items-center gap-2.5">
-                <div class="h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-xs">
+                <div
+                  class="h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-xs shrink-0"
+                >
                   {{ target.alias.slice(0, 1).toUpperCase() }}
                 </div>
                 <div>
-                  <div class="font-semibold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                  <div class="font-semibold text-slate-900 dark:text-white">
                     {{ target.alias }}
                   </div>
                   <div class="flex items-center gap-2 font-mono text-[11px] text-slate-400">
-                    <span>{{ target.address.slice(0, 6) }}...{{ target.address.slice(-4) }}</span>
+                    <span>{{ truncateAddress(target.address) }}</span>
                     <a
                       :href="`https://polymarket.com/profile/${target.address}`"
                       target="_blank"
                       rel="noopener noreferrer"
                       class="text-blue-500 hover:underline inline-flex items-center gap-0.5 text-[10px]"
-                      title="Voir sur Polymarket"
                     >
-                      Polymarket ↗
+                      <span>Profil</span>
+                      <AppIcon name="arrow-up-right" :size="10" />
                     </a>
                   </div>
                 </div>
               </div>
             </td>
 
-            <!-- Switch On/Off -->
-            <td class="py-3 px-4">
-              <button
-                type="button"
-                @click="handleToggle(target.id, target.enabled)"
-                :class="[
-                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                  target.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
-                ]"
-              >
-                <span
-                  :class="[
-                    'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                    target.enabled ? 'translate-x-4' : 'translate-x-0'
-                  ]"
-                />
-              </button>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <AppToggle
+                :model-value="target.enabled"
+                active-color="emerald"
+                size="sm"
+                @update:model-value="(val) => handleToggle(target.id, val)"
+              />
             </td>
 
-            <!-- Poids -->
-            <td class="py-3 px-4 font-mono">
-              <span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+            <td class="py-3 px-4 whitespace-nowrap">
+              <AppBadge variant="neutral" size="xs" rounded="md">
                 {{ target.weightMultiplier.toFixed(1) }}x
-              </span>
+              </AppBadge>
             </td>
 
-            <!-- Plafond Max -->
-            <td class="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">
-              {{ target.maxUsdcPerTrade ? `$${target.maxUsdcPerTrade}` : 'Défaut' }}
+            <td class="py-3 px-4 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">
+              {{ target.maxUsdcPerTrade ? `$${target.maxUsdcPerTrade}` : "Défaut" }}
             </td>
 
-            <!-- Trades Copiés -->
-            <td class="py-3 px-4 font-mono text-slate-700 dark:text-slate-200">
+            <td class="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
               {{ targetsPerformance.get(target.id)?.trades ?? 0 }}
             </td>
 
-            <!-- W / L Counter -->
-            <td class="py-3 px-4 font-mono">
-              <span class="inline-flex items-center gap-1 font-semibold text-xs">
-                <span class="text-emerald-600 dark:text-emerald-400">{{ targetsPerformance.get(target.id)?.wins ?? 0 }}W</span>
-                <span class="text-slate-400">-</span>
-                <span class="text-rose-600 dark:text-rose-400">{{ targetsPerformance.get(target.id)?.losses ?? 0 }}L</span>
-                <span
-                  v-if="(targetsPerformance.get(target.id)?.totalClosed ?? 0) > 0"
-                  class="text-[10px] text-slate-400 ml-1 font-normal"
-                >
-                  ({{ (targetsPerformance.get(target.id)?.winRate ?? 0).toFixed(0) }}%)
-                </span>
+            <td class="py-3 px-4 font-mono whitespace-nowrap">
+              <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
+                {{ targetsPerformance.get(target.id)?.wins ?? 0 }}W
+              </span>
+              <span class="text-slate-400 mx-1">-</span>
+              <span class="text-rose-600 dark:text-rose-400 font-semibold">
+                {{ targetsPerformance.get(target.id)?.losses ?? 0 }}L
               </span>
             </td>
 
-            <!-- Volume Généré -->
-            <td class="py-3 px-4 font-mono font-medium text-slate-700 dark:text-slate-200">
-              ${{ (targetsPerformance.get(target.id)?.volume ?? 0).toFixed(2) }}
-            </td>
-
-            <!-- PnL Réalisé -->
-            <td
-              class="py-3 px-4 font-mono font-semibold"
-              :class="(targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-            >
-              {{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0 ? '+' : '' }}${{ (targetsPerformance.get(target.id)?.realizedPnl ?? 0).toFixed(2) }}
-            </td>
-
-            <!-- Actions -->
-            <td class="py-3 px-6 text-right">
-              <button
-                type="button"
-                @click="handleDelete(target.id, target.alias)"
-                class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition cursor-pointer"
-                title="Supprimer"
+            <td class="py-3 px-4 whitespace-nowrap">
+              <AppBadge
+                :variant="
+                  (targetsPerformance.get(target.id)?.totalClosed ?? 0) === 0
+                    ? 'neutral'
+                    : (targetsPerformance.get(target.id)?.winRate ?? 0) >= 50
+                      ? 'success'
+                      : 'danger'
+                "
+                size="xs"
               >
-                🗑️
-              </button>
+                {{ (targetsPerformance.get(target.id)?.winRate ?? 0).toFixed(1) }}%
+              </AppBadge>
+            </td>
+
+            <td class="py-3 px-4 font-mono text-slate-700 dark:text-slate-200 whitespace-nowrap">
+              {{ formatCurrency(targetsPerformance.get(target.id)?.volume) }}
+            </td>
+
+            <td
+              class="py-3 px-4 font-mono font-bold whitespace-nowrap"
+              :class="
+                (targetsPerformance.get(target.id)?.realizedPnl ?? 0) >= 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-rose-600 dark:text-rose-400'
+              "
+            >
+              {{ formatSignedCurrency(targetsPerformance.get(target.id)?.realizedPnl) }}
+            </td>
+
+            <td class="py-3 px-6 text-right whitespace-nowrap">
+              <div class="inline-flex items-center justify-end gap-1">
+                <button
+                  type="button"
+                  @click="openEditModal(target)"
+                  class="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 p-1.5 rounded-lg hover:bg-blue-500/10 transition cursor-pointer"
+                  title="Modifier"
+                >
+                  <AppIcon name="pencil" :size="14" />
+                </button>
+                <button
+                  type="button"
+                  @click="handleDelete(target.id, target.alias)"
+                  class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition cursor-pointer"
+                  title="Supprimer"
+                >
+                  <AppIcon name="trash" :size="14" />
+                </button>
+              </div>
             </td>
           </tr>
 
-          <!-- Empty State in Table Mode -->
-          <tr v-if="targetsStore.targets.length === 0">
-            <td colspan="9" class="text-center py-10 text-slate-400">
-              <div class="text-2xl mb-2">🎯</div>
-              <p class="font-medium text-slate-700 dark:text-slate-300">Aucune cible sous surveillance pour le moment</p>
-              <p class="text-xs text-slate-400 mt-1">Cliquez sur "+ Traquer une Baleine" pour activer la réplication furtive d'un trader.</p>
+          <tr v-if="paginatedItems.length === 0">
+            <td colspan="10">
+              <AppEmptyState
+                icon="target"
+                title="Aucune cible sous surveillance"
+                description="Cliquez sur « Ajouter une baleine » pour démarrer la réplication."
+              />
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Modal -->
-    <AddTargetModal v-if="isModalOpen" @close="isModalOpen = false" />
+    <!-- Pagination globale (20/page ajustable) -->
+    <AppPagination
+      v-if="totalItems > 0"
+      :page="page"
+      :page-size="pageSize"
+      :total-items="totalItems"
+      :total-pages="totalPages"
+      item-label="baleines"
+      @update:page="setPage"
+      @update:page-size="setPageSize"
+    />
+
+    <!-- Modale Création / Édition -->
+    <TargetFormModal v-if="isModalOpen" :target="editingTarget" @close="closeModal" />
   </div>
 </template>

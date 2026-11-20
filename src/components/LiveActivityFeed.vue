@@ -1,197 +1,409 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import type { TradeModeFilter, TradeSortField } from "@lotso-trading/shared";
+import { computed, onMounted, ref } from "vue";
 import { useTargetsStore } from "../stores/use-targets.store.ts";
-import { useTradesStore } from "../stores/use-trades.store.ts";
+import {
+    type TradeSideFilter,
+    type TradeStatusFilter,
+    useTradesStore,
+} from "../stores/use-trades.store.ts";
+import {
+    formatCurrency,
+    formatTimestampDateTime,
+    formatTimestampTime,
+    truncateAddress,
+} from "../utils/formatters.ts";
+import { getPolymarketUrl } from "../utils/polymarket-url.ts";
+import AppBadge, { type BadgeVariant } from "./ui/AppBadge.vue";
+import AppEmptyState from "./ui/AppEmptyState.vue";
+import AppIcon from "./ui/AppIcon.vue";
+import AppPagination from "./ui/AppPagination.vue";
+import AppSegmentedFilter from "./ui/AppSegmentedFilter.vue";
+import SortableTh from "./ui/SortableTh.vue";
+
+const props = withDefaults(
+    defineProps<{
+        compact?: boolean;
+    }>(),
+    {
+        compact: false,
+    }
+);
 
 const tradesStore = useTradesStore();
 const targetsStore = useTargetsStore();
-const activeFilter = ref<string>("ALL");
-const scrollContainer = ref<HTMLElement | null>(null);
+
+const localSearch = ref(tradesStore.searchQuery);
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+const statusOptions = [
+    { value: "ALL" as TradeStatusFilter, label: "Tous" },
+    {
+        value: "FILLED" as TradeStatusFilter,
+        label: "Exécutés",
+        activeClass:
+            "bg-white text-emerald-600 shadow-xs dark:bg-slate-800 dark:text-emerald-400 font-semibold",
+    },
+    {
+        value: "REJECTED" as TradeStatusFilter,
+        label: "Rejetés",
+        activeClass:
+            "bg-white text-amber-600 shadow-xs dark:bg-slate-800 dark:text-amber-400 font-semibold",
+    },
+    {
+        value: "FAILED" as TradeStatusFilter,
+        label: "Échoués",
+        activeClass:
+            "bg-white text-rose-600 shadow-xs dark:bg-slate-800 dark:text-rose-400 font-semibold",
+    },
+];
+
+const hasActiveFilters = computed(() => {
+    return (
+        tradesStore.filterStatus !== "ALL" ||
+        tradesStore.filterSide !== "ALL" ||
+        tradesStore.filterTargetAddress !== "ALL" ||
+        tradesStore.filterMode !== "ALL" ||
+        tradesStore.searchQuery.trim().length > 0
+    );
+});
 
 function getWhaleName(address: string): string {
     const target = targetsStore.targets.find(
         (t) => t.address.toLowerCase() === address.toLowerCase()
     );
-    return target ? target.alias : `${address.slice(0, 8)}...`;
+    return target ? target.alias : truncateAddress(address);
 }
 
-function getSideBadge(side: string, status: string) {
+function getTypeBadge(
+    side: string,
+    status: string
+): { label: string; variant: BadgeVariant; title?: string } {
     if (status === "REJECTED") {
-        return { label: "REJETÉ", class: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
+        return { label: "Rejeté", variant: "warning" };
+    }
+    if (status === "FAILED") {
+        return { label: "Échoué", variant: "danger" };
     }
     if (side === "BUY") {
-        return {
-            label: "ACHAT",
-            class: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-        };
+        return { label: "Achat", variant: "success" };
     }
-    return {
-        label: "VENTE (SORTIE ALL)",
-        class: "bg-rose-500/15 text-rose-400 border-rose-500/30",
-    };
+    return { label: "Vente", variant: "danger", title: "Sortie ALL répliquée" };
 }
 
-function formatDate(timestamp: number): string {
-    const d = new Date(timestamp);
-    return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+function handleSearchInput(): void {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        tradesStore.setSearch(localSearch.value);
+    }, 300);
 }
 
-async function setFilter(filter: string) {
-    activeFilter.value = filter;
-    await tradesStore.loadInitialTrades(filter);
-    if (scrollContainer.value) {
-        scrollContainer.value.scrollTop = 0;
-    }
+function handleSort(field: string): void {
+    tradesStore.toggleSort(field as TradeSortField);
 }
 
-function handleScroll(e: Event) {
-    const target = e.target as HTMLElement;
-    if (!target) return;
-    const threshold = 100;
-    if (target.scrollTop + target.clientHeight >= target.scrollHeight - threshold) {
-        tradesStore.loadMoreTrades();
-    }
+async function handleResetFilters(): Promise<void> {
+    localSearch.value = "";
+    await tradesStore.resetFilters();
 }
 
 onMounted(async () => {
-    await tradesStore.loadInitialTrades("ALL");
+    if (tradesStore.trades.length === 0) {
+        await tradesStore.loadPage(1);
+    }
 });
 </script>
 
 <template>
-  <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-xs transition-colors">
+  <div
+    class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-xs transition-colors"
+  >
     <!-- Header -->
-    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+    <div
+      class="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3"
+    >
       <div>
-        <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <span>⚡</span> Journal d'Activité Furtif (Lotso)
-        </h3>
-        <p class="text-xs text-slate-500 dark:text-slate-400">
-          Flux temps réel des signaux captés, réplications exécutées et filtrages anti-détection
+        <div class="flex items-center flex-wrap gap-2">
+          <AppIcon name="zap" :size="17" class="text-rose-500" />
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">
+            Journal d'Activité Furtif
+          </h3>
+          <AppBadge variant="neutral" size="xs">
+            {{ tradesStore.total }} ordres
+          </AppBadge>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Signaux captés, ordres répliqués et filtrages du gestionnaire de risque
         </p>
       </div>
 
-      <!-- Filtres -->
-      <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-[#0B0E14] p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-        <button
-          type="button"
-          @click="setFilter('ALL')"
-          :class="[
-            'px-2.5 py-1 rounded-lg font-medium transition cursor-pointer',
-            activeFilter === 'ALL'
-              ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-800 dark:text-white font-semibold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          Tous <span v-if="activeFilter === 'ALL'" class="text-[10px] text-slate-400">({{ tradesStore.total }})</span>
-        </button>
-        <button
-          type="button"
-          @click="setFilter('FILLED')"
-          :class="[
-            'px-2.5 py-1 rounded-lg font-medium transition cursor-pointer',
-            activeFilter === 'FILLED'
-              ? 'bg-white text-emerald-600 shadow-xs dark:bg-slate-800 dark:text-emerald-400 font-semibold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          Exécutés <span v-if="activeFilter === 'FILLED'" class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">({{ tradesStore.total }})</span>
-        </button>
-        <button
-          type="button"
-          @click="setFilter('REJECTED')"
-          :class="[
-            'px-2.5 py-1 rounded-lg font-medium transition cursor-pointer',
-            activeFilter === 'REJECTED'
-              ? 'bg-white text-amber-600 shadow-xs dark:bg-slate-800 dark:text-amber-400 font-semibold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          ]"
-        >
-          Rejetés <span v-if="activeFilter === 'REJECTED'" class="text-[10px] text-amber-600/80 dark:text-amber-400/80">({{ tradesStore.total }})</span>
-        </button>
-      </div>
+      <AppSegmentedFilter
+        :model-value="tradesStore.filterStatus"
+        :options="statusOptions"
+        size="xs"
+        @update:model-value="(val) => tradesStore.setStatusFilter(val)"
+      />
     </div>
 
-    <!-- Feed List avec Scroll Infini -->
+    <!-- Barre de filtres avancés (masquable/allégée en mode compact) -->
     <div
-      ref="scrollContainer"
-      @scroll="handleScroll"
-      class="divide-y divide-slate-100 dark:divide-slate-800/40 max-h-[500px] overflow-y-auto"
+      v-if="!props.compact"
+      class="px-5 sm:px-6 py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-950/30 flex flex-wrap items-center gap-2.5 text-xs"
     >
-      <div
-        v-for="trade in tradesStore.trades"
-        :key="trade.id"
-        class="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition flex items-start justify-between gap-4"
+      <!-- Recherche -->
+      <div class="relative flex-1 min-w-[200px] max-w-xs">
+        <AppIcon
+          name="search"
+          :size="14"
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+        />
+        <input
+          v-model="localSearch"
+          @input="handleSearchInput"
+          type="text"
+          placeholder="Rechercher un marché ou motif..."
+          class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500"
+        />
+      </div>
+
+      <!-- Filtre Side -->
+      <select
+        :value="tradesStore.filterSide"
+        @change="(e) => tradesStore.setSideFilter((e.target as HTMLSelectElement).value as TradeSideFilter)"
+        aria-label="Filtrer par sens"
+        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer"
       >
-        <div class="flex items-start gap-3">
-          <!-- Heure -->
-          <span class="text-[11px] font-mono text-slate-400 dark:text-slate-500 pt-1">
-            {{ formatDate(trade.executedAt) }}
-          </span>
+        <option value="ALL">Sens : Tous</option>
+        <option value="BUY">Achats (BUY)</option>
+        <option value="SELL">Ventes (SELL)</option>
+      </select>
 
-          <!-- Badge Side -->
-          <span
-            :class="[
-              'px-2 py-0.5 rounded text-[11px] font-bold font-mono border uppercase tracking-wider',
-              getSideBadge(trade.side, trade.status).class
-            ]"
-          >
-            {{ getSideBadge(trade.side, trade.status).label }}
-          </span>
-
-          <div>
-            <div class="text-xs text-slate-700 dark:text-slate-200">
-              <span class="font-semibold text-slate-900 dark:text-white">Baleine</span>
-              <span class="font-mono text-blue-600 dark:text-blue-400 text-[11px] ml-1.5 font-bold">{{ getWhaleName(trade.targetAddress) }}</span>
-              <span class="text-slate-400 mx-1.5">•</span>
-              <span class="font-mono text-slate-600 dark:text-slate-300">{{ trade.shares.toFixed(1) }} parts</span>
-              <span class="text-slate-400 mx-1.5">@</span>
-              <span class="font-mono text-slate-900 dark:text-slate-100 font-semibold">${{ trade.executedPrice.toFixed(3) }}</span>
-              <span class="text-slate-400 text-[11px] ml-1">(${{ trade.costUsdc.toFixed(2) }} USDC)</span>
-            </div>
-
-            <!-- Motif en cas de rejet -->
-            <div v-if="trade.rejectionReason" class="text-xs font-mono text-amber-600 dark:text-amber-400 mt-1 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-md inline-block">
-              🛡️ Motif du refus : {{ trade.rejectionReason }}
-            </div>
-
-            <div v-if="trade.status === 'FILLED' && trade.slippagePercent > 0" class="text-[11px] font-mono text-slate-400 mt-0.5">
-              Slippage : +{{ trade.slippagePercent.toFixed(2) }}%
-            </div>
-          </div>
-        </div>
-
-        <!-- Mode Badge -->
-        <span
-          :class="[
-            'text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase tracking-wider shrink-0',
-            trade.isDryRun
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-          ]"
-        >
-          {{ trade.isDryRun ? 'Simulation' : 'Réel CLOB' }}
-        </span>
-      </div>
-
-      <!-- Spinner Chargement Infini -->
-      <div v-if="tradesStore.isLoadingMore" class="py-3 text-center text-xs font-mono text-blue-500 bg-slate-50 dark:bg-slate-900/40">
-        Chargement des transactions précédentes...
-      </div>
-
-      <!-- Indicateur Fin de Liste -->
-      <div
-        v-if="!tradesStore.hasMore && tradesStore.trades.length > 0"
-        class="py-3 text-center text-[11px] font-mono text-slate-400 bg-slate-50 dark:bg-slate-900/20"
+      <!-- Filtre Baleine -->
+      <select
+        :value="tradesStore.filterTargetAddress"
+        @change="(e) => tradesStore.setTargetFilter((e.target as HTMLSelectElement).value)"
+        aria-label="Filtrer par baleine"
+        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer max-w-[180px]"
       >
-        ✓ Toutes les {{ tradesStore.total }} transactions ont été chargées
-      </div>
+        <option value="ALL">Baleines : Toutes</option>
+        <option v-for="t in targetsStore.targets" :key="t.id" :value="t.address">
+          {{ t.alias }}
+        </option>
+      </select>
 
-      <!-- Empty State -->
-      <div v-if="tradesStore.trades.length === 0 && !tradesStore.isLoading" class="text-center py-12 text-slate-400 text-xs">
-        <p class="font-medium text-slate-600 dark:text-slate-300">Aucune activité détectée sous les radars pour l'instant</p>
-        <p class="text-slate-400 dark:text-slate-500 mt-1">Lotso surveille les portefeuilles cibles en tâche de fond.</p>
-      </div>
+      <!-- Filtre Mode -->
+      <select
+        :value="tradesStore.filterMode"
+        @change="(e) => tradesStore.setModeFilter((e.target as HTMLSelectElement).value as TradeModeFilter)"
+        aria-label="Filtrer par mode"
+        class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer"
+      >
+        <option value="ALL">Mode : Tous</option>
+        <option value="DRY_RUN">Simulation</option>
+        <option value="LIVE">Live CLOB</option>
+      </select>
+
+      <button
+        v-if="hasActiveFilters"
+        type="button"
+        @click="handleResetFilters"
+        class="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap"
+      >
+        <AppIcon name="rotate-ccw" :size="13" />
+        <span>Réinitialiser</span>
+      </button>
     </div>
+
+    <!-- Tableau Structuré -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse text-xs">
+        <thead>
+          <tr
+            class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]"
+          >
+            <SortableTh
+              label="Date"
+              field="executedAt"
+              :active-field="tradesStore.sortBy"
+              :sort-order="tradesStore.sortOrder"
+              @sort="handleSort"
+            />
+            <th class="py-3 px-4 whitespace-nowrap">Type</th>
+            <th class="py-3 px-4 whitespace-nowrap">Baleine</th>
+            <th v-if="!props.compact" class="py-3 px-4 min-w-[200px]">Marché / Détail</th>
+            <SortableTh
+              v-if="!props.compact"
+              label="Parts"
+              field="shares"
+              :active-field="tradesStore.sortBy"
+              :sort-order="tradesStore.sortOrder"
+              @sort="handleSort"
+            />
+            <SortableTh
+              v-if="!props.compact"
+              label="Prix"
+              field="executedPrice"
+              :active-field="tradesStore.sortBy"
+              :sort-order="tradesStore.sortOrder"
+              @sort="handleSort"
+            />
+            <SortableTh
+              label="Montant"
+              field="costUsdc"
+              :active-field="tradesStore.sortBy"
+              :sort-order="tradesStore.sortOrder"
+              @sort="handleSort"
+            />
+            <SortableTh
+              v-if="!props.compact"
+              label="Slippage"
+              field="slippagePercent"
+              :active-field="tradesStore.sortBy"
+              :sort-order="tradesStore.sortOrder"
+              @sort="handleSort"
+            />
+            <th class="py-3 px-4 text-right whitespace-nowrap">Mode</th>
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
+          <tr
+            v-for="trade in tradesStore.trades"
+            :key="trade.id"
+            class="hover:bg-slate-50/80 dark:hover:bg-slate-800/20 transition"
+          >
+            <!-- Date -->
+            <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              {{ props.compact ? formatTimestampTime(trade.executedAt, true) : formatTimestampDateTime(trade.executedAt) }}
+            </td>
+
+            <!-- Type / Statut -->
+            <td class="py-3 px-4 whitespace-nowrap">
+              <AppBadge
+                :variant="getTypeBadge(trade.side, trade.status).variant"
+                :title="getTypeBadge(trade.side, trade.status).title"
+                size="xs"
+                rounded="md"
+              >
+                {{ getTypeBadge(trade.side, trade.status).label }}
+              </AppBadge>
+            </td>
+
+            <!-- Baleine -->
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="font-mono font-semibold text-blue-600 dark:text-blue-400 text-[11px]">
+                {{ getWhaleName(trade.targetAddress) }}
+              </span>
+            </td>
+
+            <!-- Marché / Motif -->
+            <td v-if="!props.compact" class="py-3 px-4 max-w-[280px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <a
+                  v-if="trade.marketQuestion"
+                  :href="getPolymarketUrl(trade)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  :title="trade.marketQuestion"
+                  class="font-medium text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 truncate"
+                >
+                  {{ trade.marketQuestion }}
+                </a>
+                <span v-else class="text-slate-400 font-mono truncate">
+                  {{ truncateAddress(trade.conditionId, 8, 6) }}
+                </span>
+                <AppBadge v-if="trade.outcomeLabel" variant="neutral" size="xs" rounded="md" :truncate="true">
+                  {{ trade.outcomeLabel }}
+                </AppBadge>
+              </div>
+              <div
+                v-if="trade.rejectionReason"
+                class="text-[11px] font-mono text-amber-600 dark:text-amber-400 mt-1 flex items-start gap-1"
+                :title="trade.rejectionReason"
+              >
+                <AppIcon name="shield" :size="12" class="mt-0.5 shrink-0" />
+                <span class="line-clamp-1">{{ trade.rejectionReason }}</span>
+              </div>
+            </td>
+
+            <!-- Parts -->
+            <td v-if="!props.compact" class="py-3 px-4 font-mono whitespace-nowrap">
+              {{ trade.shares.toFixed(1) }}
+            </td>
+
+            <!-- Prix -->
+            <td v-if="!props.compact" class="py-3 px-4 font-mono whitespace-nowrap">
+              {{ formatCurrency(trade.executedPrice, 3) }}
+            </td>
+
+            <!-- Montant -->
+            <td class="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+              {{ formatCurrency(trade.costUsdc) }}
+            </td>
+
+            <!-- Slippage -->
+            <td v-if="!props.compact" class="py-3 px-4 font-mono whitespace-nowrap">
+              <span
+                v-if="trade.status === 'FILLED'"
+                :class="
+                  trade.slippagePercent > 1
+                    ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                    : 'text-slate-500 dark:text-slate-400'
+                "
+              >
+                {{ trade.slippagePercent >= 0 ? "+" : "" }}{{ trade.slippagePercent.toFixed(2) }}%
+              </span>
+              <span v-else class="text-slate-400">—</span>
+            </td>
+
+            <!-- Mode -->
+            <td class="py-3 px-4 text-right whitespace-nowrap">
+              <AppBadge
+                :variant="trade.isDryRun ? 'warning' : 'success'"
+                size="xs"
+                rounded="md"
+              >
+                {{ trade.isDryRun ? "Simu" : "Live" }}
+              </AppBadge>
+            </td>
+          </tr>
+
+          <tr v-if="tradesStore.isLoading && tradesStore.trades.length === 0">
+            <td :colspan="props.compact ? 5 : 9" class="py-10 text-center text-slate-400">
+              <span class="inline-flex items-center gap-2 text-xs">
+                <AppIcon name="refresh-cw" :size="14" class="animate-spin" />
+                Chargement du journal...
+              </span>
+            </td>
+          </tr>
+
+          <tr v-if="!tradesStore.isLoading && tradesStore.trades.length === 0">
+            <td :colspan="props.compact ? 5 : 9">
+              <AppEmptyState
+                icon="zap"
+                title="Aucune activité trouvée"
+                :description="
+                  hasActiveFilters
+                    ? 'Aucun ordre ne correspond aux filtres sélectionnés.'
+                    : 'Lotso surveille les portefeuilles cibles en tâche de fond.'
+                "
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <AppPagination
+      v-if="tradesStore.total > 0"
+      :page="tradesStore.page"
+      :page-size="tradesStore.pageSize"
+      :total-items="tradesStore.total"
+      :total-pages="tradesStore.totalPages"
+      item-label="ordres"
+      @update:page="(p) => tradesStore.setPage(p)"
+      @update:page-size="(s) => tradesStore.setPageSize(s)"
+    />
   </div>
 </template>

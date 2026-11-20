@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useThemeStore } from "../stores/use-theme.store.ts";
+import AppIcon from "./ui/AppIcon.vue";
 
 const themeStore = useThemeStore();
 </script>
@@ -17,11 +18,11 @@ const themeStore = useThemeStore();
         'px-2 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer font-medium',
         themeStore.theme === 'light'
           ? 'bg-white text-amber-600 shadow-xs dark:bg-slate-800 dark:text-amber-400 font-semibold'
-          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200',
       ]"
       title="Mode Clair"
     >
-      <span class="text-xs">☀️</span>
+      <AppIcon name="sun" :size="13" />
       <span class="hidden xl:inline text-[11px]">Clair</span>
     </button>
 
@@ -32,11 +33,11 @@ const themeStore = useThemeStore();
         'px-2 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer font-medium',
         themeStore.theme === 'dark'
           ? 'bg-white text-blue-600 shadow-xs dark:bg-slate-800 dark:text-blue-400 font-semibold'
-          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200',
       ]"
       title="Mode Sombre"
     >
-      <span class="text-xs">🌙</span>
+      <AppIcon name="moon" :size="13" />
       <span class="hidden xl:inline text-[11px]">Sombre</span>
     </button>
 
@@ -47,11 +48,11 @@ const themeStore = useThemeStore();
         'px-2 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer font-medium',
         themeStore.theme === 'system'
           ? 'bg-white text-indigo-600 shadow-xs dark:bg-slate-800 dark:text-indigo-400 font-semibold'
-          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200',
       ]"
-      title="Thème Automatique (Selon votre système)"
+      title="Thème Automatique"
     >
-      <span class="text-xs">💻</span>
+      <AppIcon name="monitor" :size="13" />
       <span class="hidden xl:inline text-[11px]">Auto</span>
     </button>
   </div>

@@ -1,97 +1,184 @@
-import type { ExecutedTrade } from "@lotso-trading/shared";
+import type {
+    ExecutedTrade,
+    SortOrder,
+    TradeModeFilter,
+    TradeSide,
+    TradeSortField,
+    TradeStatus,
+} from "@lotso-trading/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { api } from "../api/http-client.ts";
+import { DEFAULT_PAGE_SIZE } from "../composables/use-pagination.ts";
+
+export type TradeStatusFilter = "ALL" | TradeStatus;
+export type TradeSideFilter = "ALL" | TradeSide;
 
 export const useTradesStore = defineStore("trades", () => {
     const trades = ref<ExecutedTrade[]>([]);
     const total = ref(0);
+    const page = ref(1);
+    const pageSize = ref(DEFAULT_PAGE_SIZE);
+    const totalPages = ref(1);
     const isLoading = ref(false);
-    const isLoadingMore = ref(false);
-    const hasMore = ref(true);
-    const currentPage = ref(1);
-    const currentStatus = ref<string | undefined>(undefined);
-    const pageSize = 25;
 
-    async function loadInitialTrades(status?: string): Promise<void> {
+    // Filtres & Tri
+    const filterStatus = ref<TradeStatusFilter>("ALL");
+    const filterSide = ref<TradeSideFilter>("ALL");
+    const filterTargetAddress = ref<string>("ALL");
+    const filterMode = ref<TradeModeFilter>("ALL");
+    const searchQuery = ref<string>("");
+    const sortBy = ref<TradeSortField>("executedAt");
+    const sortOrder = ref<SortOrder>("desc");
+
+    async function loadPage(targetPage = page.value): Promise<void> {
         isLoading.value = true;
-        currentPage.value = 1;
-        currentStatus.value = !status || status === "ALL" ? undefined : status;
-        hasMore.value = true;
+        page.value = Math.max(1, targetPage);
 
         try {
             const res = await api.getTrades({
-                page: 1,
-                limit: pageSize,
-                status: currentStatus.value,
+                page: page.value,
+                limit: pageSize.value,
+                status: filterStatus.value === "ALL" ? undefined : filterStatus.value,
+                side: filterSide.value === "ALL" ? undefined : filterSide.value,
+                targetAddress:
+                    filterTargetAddress.value === "ALL" ? undefined : filterTargetAddress.value,
+                isDryRun: filterMode.value === "ALL" ? undefined : filterMode.value,
+                search: searchQuery.value.trim() || undefined,
+                sortBy: sortBy.value,
+                sortOrder: sortOrder.value,
             });
             trades.value = res.items;
             total.value = res.total;
-            hasMore.value = trades.value.length < res.total;
+            page.value = res.page;
+            totalPages.value = Math.max(1, res.totalPages || Math.ceil(res.total / pageSize.value));
         } catch (err: unknown) {
-            console.warn("[TradesStore] Erreur chargement initial trades:", err);
+            console.warn("[TradesStore] Erreur chargement trades:", err);
         } finally {
             isLoading.value = false;
         }
     }
 
-    async function loadMoreTrades(): Promise<void> {
-        if (isLoadingMore.value || isLoading.value || !hasMore.value) return;
-
-        isLoadingMore.value = true;
-        const nextPage = currentPage.value + 1;
-
-        try {
-            const res = await api.getTrades({
-                page: nextPage,
-                limit: pageSize,
-                status: currentStatus.value,
-            });
-
-            if (res.items.length > 0) {
-                // Concaténation avec déduplication
-                const existingIds = new Set(trades.value.map((t) => t.id));
-                const newItems = res.items.filter((t) => !existingIds.has(t.id));
-                trades.value.push(...newItems);
-                currentPage.value = nextPage;
-            }
-
-            total.value = res.total;
-            hasMore.value = trades.value.length < res.total;
-        } catch (err: unknown) {
-            console.warn("[TradesStore] Erreur chargement scroll trades:", err);
-        } finally {
-            isLoadingMore.value = false;
+    async function fetchTrades(
+        targetPage = 1,
+        limit = pageSize.value,
+        status?: TradeStatusFilter
+    ): Promise<void> {
+        pageSize.value = Math.min(100, Math.max(1, Math.floor(limit)));
+        if (status !== undefined) {
+            filterStatus.value = status;
         }
+        await loadPage(targetPage);
     }
 
-    async function fetchTrades(_page = 1, _limit = 25, status?: string): Promise<void> {
-        await loadInitialTrades(status);
+    async function setPage(nextPage: number): Promise<void> {
+        await loadPage(nextPage);
+    }
+
+    async function setPageSize(nextSize: number): Promise<void> {
+        pageSize.value = Math.min(100, Math.max(1, Math.floor(nextSize)));
+        await loadPage(1);
+    }
+
+    async function setStatusFilter(status: TradeStatusFilter): Promise<void> {
+        filterStatus.value = status;
+        await loadPage(1);
+    }
+
+    async function setSideFilter(side: TradeSideFilter): Promise<void> {
+        filterSide.value = side;
+        await loadPage(1);
+    }
+
+    async function setTargetFilter(address: string): Promise<void> {
+        filterTargetAddress.value = address;
+        await loadPage(1);
+    }
+
+    async function setModeFilter(mode: TradeModeFilter): Promise<void> {
+        filterMode.value = mode;
+        await loadPage(1);
+    }
+
+    async function setSearch(query: string): Promise<void> {
+        searchQuery.value = query;
+        await loadPage(1);
+    }
+
+    async function toggleSort(field: TradeSortField): Promise<void> {
+        if (sortBy.value === field) {
+            sortOrder.value = sortOrder.value === "desc" ? "asc" : "desc";
+        } else {
+            sortBy.value = field;
+            sortOrder.value = "desc";
+        }
+        await loadPage(1);
+    }
+
+    async function resetFilters(): Promise<void> {
+        filterStatus.value = "ALL";
+        filterSide.value = "ALL";
+        filterTargetAddress.value = "ALL";
+        filterMode.value = "ALL";
+        searchQuery.value = "";
+        sortBy.value = "executedAt";
+        sortOrder.value = "desc";
+        await loadPage(1);
     }
 
     function handleTradeCreated(newTrade: ExecutedTrade): void {
-        if (currentStatus.value && currentStatus.value !== newTrade.status) {
+        if (filterStatus.value !== "ALL" && filterStatus.value !== newTrade.status) return;
+        if (filterSide.value !== "ALL" && filterSide.value !== newTrade.side) return;
+        if (
+            filterTargetAddress.value !== "ALL" &&
+            filterTargetAddress.value.toLowerCase() !== newTrade.targetAddress.toLowerCase()
+        ) {
             return;
         }
+        if (filterMode.value === "DRY_RUN" && !newTrade.isDryRun) return;
+        if (filterMode.value === "LIVE" && newTrade.isDryRun) return;
 
-        const exists = trades.value.some((t) => t.id === newTrade.id);
-        if (!exists) {
-            trades.value.unshift(newTrade);
+        if (page.value === 1 && sortBy.value === "executedAt" && sortOrder.value === "desc") {
+            const exists = trades.value.some((t) => t.id === newTrade.id);
+            if (!exists) {
+                trades.value.unshift(newTrade);
+                if (trades.value.length > pageSize.value) {
+                    trades.value.pop();
+                }
+                total.value += 1;
+                totalPages.value = Math.max(1, Math.ceil(total.value / pageSize.value));
+            }
+        } else {
             total.value += 1;
+            totalPages.value = Math.max(1, Math.ceil(total.value / pageSize.value));
         }
     }
 
     return {
         trades,
         total,
+        page,
+        pageSize,
+        totalPages,
         isLoading,
-        isLoadingMore,
-        hasMore,
-        currentPage,
-        currentStatus,
-        loadInitialTrades,
-        loadMoreTrades,
+        filterStatus,
+        filterSide,
+        filterTargetAddress,
+        filterMode,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        loadPage,
         fetchTrades,
+        setPage,
+        setPageSize,
+        setStatusFilter,
+        setSideFilter,
+        setTargetFilter,
+        setModeFilter,
+        setSearch,
+        toggleSort,
+        resetFilters,
         handleTradeCreated,
     };
 });

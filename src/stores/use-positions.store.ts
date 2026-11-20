@@ -1,13 +1,16 @@
-import type { OpenPosition } from "@lotso-trading/shared";
+import type { OpenPosition, SyncRequestResponse } from "@lotso-trading/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { api } from "../api/http-client.ts";
+import { isClosedPositionWin } from "../utils/closed-outcome.ts";
 
 export const usePositionsStore = defineStore("positions", () => {
     const positions = ref<OpenPosition[]>([]);
     const closedPositions = ref<OpenPosition[]>([]);
     const isLoading = ref(false);
     const isSettling = ref(false);
+    const lastRefreshedAt = ref<number | null>(null);
+    const lastSyncFeedback = ref<string | null>(null);
 
     const totalUnrealizedPnlUsdc = computed(() => {
         return positions.value.reduce((acc, pos) => acc + (pos.unrealizedPnlUsdc || 0), 0);
@@ -37,24 +40,12 @@ export const usePositionsStore = defineStore("positions", () => {
         return closedPositions.value.reduce((acc, pos) => acc + (pos.totalInvestedUsdc || 0), 0);
     });
 
-    const totalGainsClosedUsdc = computed(() => {
-        return closedPositions.value
-            .filter((p) => (p.realizedPnlUsdc ?? 0) > 0)
-            .reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);
-    });
-
-    const totalLossesClosedUsdc = computed(() => {
-        return closedPositions.value
-            .filter((p) => (p.realizedPnlUsdc ?? 0) < 0)
-            .reduce((acc, p) => acc + Math.abs(p.realizedPnlUsdc ?? 0), 0);
-    });
-
     const winsCount = computed(() => {
-        return closedPositions.value.filter((p) => p.closeReason === "RESOLVED_WIN").length;
+        return closedPositions.value.filter((p) => isClosedPositionWin(p)).length;
     });
 
     const lossesCount = computed(() => {
-        return closedPositions.value.filter((p) => p.closeReason === "RESOLVED_LOSS").length;
+        return closedPositions.value.filter((p) => !isClosedPositionWin(p)).length;
     });
 
     const winRatePercent = computed(() => {
@@ -69,12 +60,6 @@ export const usePositionsStore = defineStore("positions", () => {
                 totalInvestedClosedUsdc.value) *
             100
         );
-    });
-
-    const topWinningPositions = computed(() => {
-        return [...closedPositions.value]
-            .filter((p) => (p.realizedPnlUsdc ?? 0) > 0)
-            .sort((a, b) => (b.realizedPnlUsdc ?? 0) - (a.realizedPnlUsdc ?? 0));
     });
 
     const openPositionsSortedByExpiry = computed(() => {
@@ -92,6 +77,7 @@ export const usePositionsStore = defineStore("positions", () => {
         isLoading.value = true;
         try {
             positions.value = await api.getPositions();
+            lastRefreshedAt.value = Date.now();
         } catch (err: unknown) {
             console.warn("[PositionsStore] Erreur chargement positions ouvertes:", err);
         } finally {
@@ -107,18 +93,33 @@ export const usePositionsStore = defineStore("positions", () => {
         }
     }
 
-    async function triggerSettlement(): Promise<{ settledCount: number; message: string }> {
+    async function requestBotSyncAndRefresh(): Promise<SyncRequestResponse> {
         if (isSettling.value) {
-            return { settledCount: 0, message: "Vérification déjà en cours" };
+            return {
+                requested: false,
+                botOnline: false,
+                message: "Actualisation déjà en cours.",
+                requestedAt: Date.now(),
+            };
         }
+
         isSettling.value = true;
         try {
-            const res = await api.settlePositions();
+            const res = await api.requestPositionSync();
+            lastSyncFeedback.value = res.message;
             await Promise.all([fetchPositions(), fetchClosedPositions()]);
+            lastRefreshedAt.value = Date.now();
             return res;
         } catch (err: unknown) {
-            console.warn("[PositionsStore] Erreur lors de l'encaissement automatique:", err);
-            return { settledCount: 0, message: "Échec de vérification des marchés" };
+            console.warn("[PositionsStore] Erreur lors de la demande de synchronisation:", err);
+            const fallback: SyncRequestResponse = {
+                requested: false,
+                botOnline: false,
+                message: "Impossible de contacter l'API pour actualiser.",
+                requestedAt: Date.now(),
+            };
+            lastSyncFeedback.value = fallback.message;
+            return fallback;
         } finally {
             isSettling.value = false;
         }
@@ -136,6 +137,7 @@ export const usePositionsStore = defineStore("positions", () => {
         } else {
             positions.value.unshift(updated);
         }
+        lastRefreshedAt.value = Date.now();
     }
 
     function handlePositionClosed(conditionId: string, closedPos?: OpenPosition): void {
@@ -152,6 +154,7 @@ export const usePositionsStore = defineStore("positions", () => {
         } else {
             fetchClosedPositions();
         }
+        lastRefreshedAt.value = Date.now();
     }
 
     return {
@@ -159,6 +162,8 @@ export const usePositionsStore = defineStore("positions", () => {
         closedPositions,
         isLoading,
         isSettling,
+        lastRefreshedAt,
+        lastSyncFeedback,
         totalUnrealizedPnlUsdc,
         totalPositionsValueUsdc,
         totalInvestedUsdc,
@@ -166,17 +171,14 @@ export const usePositionsStore = defineStore("positions", () => {
         totalRealizedPnlUsdc,
         totalSettledPayoutUsdc,
         totalInvestedClosedUsdc,
-        totalGainsClosedUsdc,
-        totalLossesClosedUsdc,
         winsCount,
         lossesCount,
         winRatePercent,
         roiClosedPercent,
-        topWinningPositions,
         openPositionsSortedByExpiry,
         fetchPositions,
         fetchClosedPositions,
-        triggerSettlement,
+        requestBotSyncAndRefresh,
         handlePositionUpdated,
         handlePositionClosed,
     };

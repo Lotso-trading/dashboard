@@ -1,44 +1,46 @@
-import type { OpenPosition } from "@lotso-trading/shared";
+import type { ClosedPositionsTotals, OpenPosition } from "@lotso-trading/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { api } from "../api/http-client.ts";
-import { type ClosedPositionsTotals, toMs } from "../utils/positions-summary.ts";
+import { DEFAULT_PAGE_SIZE } from "../composables/use-pagination.ts";
+import { isClosedPositionWin } from "../utils/closed-outcome.ts";
+import { toMs } from "../utils/positions-summary.ts";
 
 export type TimeWindowScope = "24H" | "ALL_TIME";
 export type PositionFilterStatus = "ALL" | "WIN" | "LOSS";
 
-const defaultTotals: ClosedPositionsTotals = {
-    count: 0,
-    totalInvested: 0,
-    totalPayout: 0,
-    totalGains: 0,
-    totalLosses: 0,
-    netPnl: 0,
-    totalShares: 0,
-    avgEntryPrice: 0,
-    winCount: 0,
-    lossCount: 0,
-    winRate: 0,
-    roiPercent: 0,
-};
+export function createEmptyClosedTotals(): ClosedPositionsTotals {
+    return {
+        count: 0,
+        totalInvested: 0,
+        totalPayout: 0,
+        totalGains: 0,
+        totalLosses: 0,
+        netPnl: 0,
+        totalShares: 0,
+        avgEntryPrice: 0,
+        winCount: 0,
+        lossCount: 0,
+        winRate: 0,
+        roiPercent: 0,
+    };
+}
 
 export const useLast24hSummaryStore = defineStore("last24hSummary", () => {
     const items = ref<OpenPosition[]>([]);
     const total = ref(0);
     const page = ref(1);
-    const pageSize = 25;
+    const pageSize = ref(DEFAULT_PAGE_SIZE);
     const totalPages = ref(1);
-    const hasMore = ref(true);
     const isLoading = ref(false);
-    const isLoadingMore = ref(false);
 
     const timeWindow = ref<TimeWindowScope>("24H");
     const filterStatus = ref<PositionFilterStatus>("ALL");
 
-    // Totaux 24h pour les 4 KPIs principaux
-    const totals24h = ref<ClosedPositionsTotals>({ ...defaultTotals });
-    // Totaux de la sélection active (filtrée)
-    const currentTotals = ref<ClosedPositionsTotals>({ ...defaultTotals });
+    // Agrégations globales exactes (non plafonnées à 100) pour le Scoreboard 24h vs Tout
+    const totals24h = ref<ClosedPositionsTotals>(createEmptyClosedTotals());
+    const totalsAll = ref<ClosedPositionsTotals>(createEmptyClosedTotals());
+    const currentTotals = ref<ClosedPositionsTotals>(createEmptyClosedTotals());
 
     function getSinceTimestamp(): number | undefined {
         if (timeWindow.value === "24H") {
@@ -47,7 +49,22 @@ export const useLast24hSummaryStore = defineStore("last24hSummary", () => {
         return undefined;
     }
 
-    async function loadInitial(
+    async function loadClosedSummaries(): Promise<void> {
+        try {
+            const since24h = Date.now() - 24 * 60 * 60 * 1000;
+            const [res24h, resAll] = await Promise.all([
+                api.getClosedSummary(since24h),
+                api.getClosedSummary(),
+            ]);
+            totals24h.value = res24h;
+            totalsAll.value = resAll;
+        } catch (err: unknown) {
+            console.warn("[Last24hSummaryStore] Erreur chargement bilans 24h/Tout:", err);
+        }
+    }
+
+    async function loadPage(
+        targetPage = page.value,
         window?: TimeWindowScope,
         status?: PositionFilterStatus
     ): Promise<void> {
@@ -55,87 +72,65 @@ export const useLast24hSummaryStore = defineStore("last24hSummary", () => {
         if (status !== undefined) filterStatus.value = status;
 
         isLoading.value = true;
-        page.value = 1;
-        hasMore.value = true;
+        page.value = Math.max(1, targetPage);
 
         try {
             const since = getSinceTimestamp();
             const res = await api.getClosedPositionsPaginated({
-                page: 1,
-                limit: pageSize,
+                page: page.value,
+                limit: pageSize.value,
                 status: filterStatus.value,
                 since,
             });
 
             items.value = res.items;
             total.value = res.total;
-            totalPages.value = res.totalPages;
-            currentTotals.value = res.totals || { ...defaultTotals };
+            page.value = res.page;
+            totalPages.value = Math.max(1, res.totalPages);
+            currentTotals.value = res.totals || createEmptyClosedTotals();
 
-            if (timeWindow.value === "24H" && filterStatus.value === "ALL") {
-                totals24h.value = res.totals || { ...defaultTotals };
-            } else if (totals24h.value.count === 0 && timeWindow.value === "24H") {
-                totals24h.value = res.totals || { ...defaultTotals };
+            if (filterStatus.value === "ALL") {
+                if (timeWindow.value === "24H") {
+                    totals24h.value = currentTotals.value;
+                } else {
+                    totalsAll.value = currentTotals.value;
+                }
             }
-
-            hasMore.value = items.value.length < res.total;
         } catch (err: unknown) {
-            console.warn("[Last24hSummaryStore] Erreur chargement initial:", err);
+            console.warn("[Last24hSummaryStore] Erreur chargement page:", err);
         } finally {
             isLoading.value = false;
         }
     }
 
-    async function loadMore(): Promise<void> {
-        if (isLoadingMore.value || isLoading.value || !hasMore.value) return;
+    async function loadInitial(
+        window?: TimeWindowScope,
+        status?: PositionFilterStatus
+    ): Promise<void> {
+        await Promise.all([loadPage(1, window, status), loadClosedSummaries()]);
+    }
 
-        isLoadingMore.value = true;
-        const nextPage = page.value + 1;
+    async function setPage(nextPage: number): Promise<void> {
+        await loadPage(nextPage);
+    }
 
-        try {
-            const since = getSinceTimestamp();
-            const res = await api.getClosedPositionsPaginated({
-                page: nextPage,
-                limit: pageSize,
-                status: filterStatus.value,
-                since,
-            });
-
-            if (res.items.length > 0) {
-                const existingIds = new Set(items.value.map((p) => p.id));
-                const newItems = res.items.filter((p) => !existingIds.has(p.id));
-                items.value.push(...newItems);
-                page.value = nextPage;
-            }
-
-            total.value = res.total;
-            totalPages.value = res.totalPages;
-            if (res.totals) {
-                currentTotals.value = res.totals;
-                if (timeWindow.value === "24H" && filterStatus.value === "ALL") {
-                    totals24h.value = res.totals;
-                }
-            }
-            hasMore.value = items.value.length < res.total;
-        } catch (err: unknown) {
-            console.warn("[Last24hSummaryStore] Erreur chargement infinite scroll:", err);
-        } finally {
-            isLoadingMore.value = false;
-        }
+    async function setPageSize(nextSize: number): Promise<void> {
+        pageSize.value = Math.min(100, Math.max(1, Math.floor(nextSize)));
+        await loadPage(1);
     }
 
     async function setTimeWindow(newWindow: TimeWindowScope): Promise<void> {
         if (timeWindow.value === newWindow) return;
-        await loadInitial(newWindow, filterStatus.value);
+        await loadPage(1, newWindow, filterStatus.value);
     }
 
     async function setFilterStatus(newStatus: PositionFilterStatus): Promise<void> {
         if (filterStatus.value === newStatus) return;
-        await loadInitial(timeWindow.value, newStatus);
+        await loadPage(1, timeWindow.value, newStatus);
     }
 
     function handlePositionClosed(closedPos: OpenPosition): void {
-        const isWin = closedPos.closeReason === "RESOLVED_WIN";
+        const isWin = isClosedPositionWin(closedPos);
         const matchesStatus =
             filterStatus.value === "ALL" ||
             (filterStatus.value === "WIN" && isWin) ||
@@ -149,12 +144,22 @@ export const useLast24hSummaryStore = defineStore("last24hSummary", () => {
             if (!isWithin24h) return;
         }
 
+        if (page.value !== 1) {
+            total.value += 1;
+            totalPages.value = Math.max(1, Math.ceil(total.value / pageSize.value));
+            return;
+        }
+
         const existingIdx = items.value.findIndex((p) => p.id === closedPos.id);
         if (existingIdx !== -1) {
             items.value[existingIdx] = closedPos;
         } else {
             items.value.unshift(closedPos);
+            if (items.value.length > pageSize.value) {
+                items.value.pop();
+            }
             total.value += 1;
+            totalPages.value = Math.max(1, Math.ceil(total.value / pageSize.value));
         }
     }
 
@@ -164,15 +169,17 @@ export const useLast24hSummaryStore = defineStore("last24hSummary", () => {
         page,
         pageSize,
         totalPages,
-        hasMore,
         isLoading,
-        isLoadingMore,
         timeWindow,
         filterStatus,
         totals24h,
+        totalsAll,
         currentTotals,
+        loadClosedSummaries,
+        loadPage,
         loadInitial,
-        loadMore,
+        setPage,
+        setPageSize,
         setTimeWindow,
         setFilterStatus,
         handlePositionClosed,

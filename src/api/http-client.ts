@@ -1,15 +1,26 @@
 import type {
     AddTargetInput,
     ApiResponse,
-    ClosedPositionsQuery,
+    ClosedPositionsTotals,
     ExecutedTrade,
     OpenPosition,
+    PeriodSummaryQueryParsed,
+    PeriodSummaryResponse,
     RiskConfig,
+    ServiceVersions,
+    SyncRequestResponse,
     TargetTrader,
+    TradesQuery,
     UpdateRiskConfigInput,
     UpdateTargetInput,
 } from "@lotso-trading/shared";
-import type { ClosedPositionsTotals } from "../utils/positions-summary.ts";
+
+export interface ClosedPositionsRequestParams {
+    page?: number;
+    limit?: number;
+    status?: "ALL" | "WIN" | "LOSS";
+    since?: number;
+}
 
 export interface GlobalMetrics {
     totalTradedVolumeUsdc: number;
@@ -62,16 +73,21 @@ class HttpClient {
         return json.data;
     }
 
+    // --- Système & Versions ---
+    async getSystemVersions(): Promise<ServiceVersions> {
+        return await this.request<ServiceVersions>("/system/versions");
+    }
+
     // --- Cibles (Targets / Baleines) ---
     async getTargets(): Promise<TargetTrader[]> {
         return await this.request<TargetTrader[]>("/targets");
     }
 
     async createTarget(dto: AddTargetInput): Promise<TargetTrader> {
-        return (await this.request<TargetTrader[]>("/targets", {
+        return await this.request<TargetTrader>("/targets", {
             method: "POST",
             body: JSON.stringify(dto),
-        })) as unknown as TargetTrader;
+        });
     }
 
     async updateTarget(id: string, dto: UpdateTargetInput): Promise<TargetTrader> {
@@ -97,7 +113,12 @@ class HttpClient {
         return await this.request<OpenPosition[]>("/positions/closed");
     }
 
-    async getClosedPositionsPaginated(params: ClosedPositionsQuery = {}): Promise<{
+    async getClosedSummary(since?: number): Promise<ClosedPositionsTotals> {
+        const query = since && since > 0 ? `?since=${encodeURIComponent(String(since))}` : "";
+        return await this.request<ClosedPositionsTotals>(`/positions/closed-summary${query}`);
+    }
+
+    async getClosedPositionsPaginated(params: ClosedPositionsRequestParams = {}): Promise<{
         items: OpenPosition[];
         total: number;
         page: number;
@@ -122,23 +143,31 @@ class HttpClient {
         }>(`/positions/closed${queryString}`);
     }
 
-    async settlePositions(): Promise<{ settledCount: number; message: string }> {
-        return await this.request<{ settledCount: number; message: string }>("/positions/settle", {
+    async requestPositionSync(): Promise<SyncRequestResponse> {
+        return await this.request<SyncRequestResponse>("/positions/sync-request", {
             method: "POST",
         });
     }
 
     // --- Historique des Trades ---
-    async getTrades(params: { page?: number; limit?: number; status?: string } = {}): Promise<{
+    async getTrades(params: Partial<TradesQuery> = {}): Promise<{
         items: ExecutedTrade[];
         total: number;
         page: number;
         limit: number;
+        totalPages: number;
     }> {
         const query = new URLSearchParams();
         if (params.page) query.set("page", String(params.page));
         if (params.limit) query.set("limit", String(params.limit));
         if (params.status) query.set("status", params.status);
+        if (params.side) query.set("side", params.side);
+        if (params.targetAddress) query.set("targetAddress", params.targetAddress);
+        if (params.isDryRun && params.isDryRun !== "ALL") query.set("isDryRun", params.isDryRun);
+        const trimmedSearch = params.search?.trim();
+        if (trimmedSearch) query.set("search", trimmedSearch);
+        if (params.sortBy) query.set("sortBy", params.sortBy);
+        if (params.sortOrder) query.set("sortOrder", params.sortOrder);
 
         const queryString = query.toString() ? `?${query.toString()}` : "";
         return await this.request<{
@@ -146,6 +175,7 @@ class HttpClient {
             total: number;
             page: number;
             limit: number;
+            totalPages: number;
         }>(`/trades${queryString}`);
     }
 
@@ -188,13 +218,28 @@ class HttpClient {
         });
     }
 
-    // --- Métriques PnL Globales ---
+    // --- Métriques PnL Globales & Bilans Périodiques ---
     async getMetrics(): Promise<GlobalMetrics> {
         return await this.request<GlobalMetrics>("/metrics");
     }
 
     async getPerformanceHistory(): Promise<PerformancePoint[]> {
         return await this.request<PerformancePoint[]>("/metrics/performance-history");
+    }
+
+    async getPeriodSummary(
+        params: Partial<PeriodSummaryQueryParsed> = {}
+    ): Promise<PeriodSummaryResponse> {
+        const query = new URLSearchParams();
+        if (params.granularity) query.set("granularity", params.granularity);
+        if (params.page) query.set("page", String(params.page));
+        if (params.limit) query.set("limit", String(params.limit));
+        if (params.sortBy) query.set("sortBy", params.sortBy);
+        if (params.sortOrder) query.set("sortOrder", params.sortOrder);
+        if (params.tz) query.set("tz", params.tz);
+
+        const queryString = query.toString() ? `?${query.toString()}` : "";
+        return await this.request<PeriodSummaryResponse>(`/metrics/period-summary${queryString}`);
     }
 
     // --- Reset Simulation ---

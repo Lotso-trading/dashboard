@@ -1,57 +1,48 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useConfigStore } from "../stores/use-config.store.ts";
+import { usePortfolioMetrics } from "../composables/use-portfolio-metrics.ts";
+import { useLast24hSummaryStore } from "../stores/use-last-24h-summary.store.ts";
 import { useMetricsStore } from "../stores/use-metrics.store.ts";
 import { usePositionsStore } from "../stores/use-positions.store.ts";
 import { useTradesStore } from "../stores/use-trades.store.ts";
+import { formatCurrency, formatSignedCurrency, formatSignedPercent } from "../utils/formatters.ts";
+import AppBadge from "./ui/AppBadge.vue";
+import AppIcon from "./ui/AppIcon.vue";
 
-const configStore = useConfigStore();
 const metricsStore = useMetricsStore();
 const positionsStore = usePositionsStore();
 const tradesStore = useTradesStore();
+const last24hStore = useLast24hSummaryStore();
 
 const isResetting = ref(false);
 
-const initialCapitalUsdc = computed(() => {
-    if (
-        configStore.config?.maxAllocatedCapitalUsdc &&
-        configStore.config.maxAllocatedCapitalUsdc > 0
-    ) {
-        return configStore.config.maxAllocatedCapitalUsdc;
-    }
-    return metricsStore.metrics.initialCapitalUsdc ?? 100.0;
-});
-const availableCashUsdc = computed(() => {
-    return Math.max(
-        0,
-        initialCapitalUsdc.value -
-            positionsStore.totalInvestedUsdc +
-            positionsStore.totalRealizedPnlUsdc
-    );
-});
-
-const totalPortfolioValueUsdc = computed(() => {
-    return availableCashUsdc.value + positionsStore.totalPositionsValueUsdc;
-});
-
-const overallGainUsdc = computed(() => {
-    return totalPortfolioValueUsdc.value - initialCapitalUsdc.value;
-});
-
-const overallGainPercent = computed(() => {
-    if (initialCapitalUsdc.value <= 0) return 0;
-    return (overallGainUsdc.value / initialCapitalUsdc.value) * 100;
-});
+const {
+    initialCapitalUsdc,
+    availableCashUsdc,
+    totalPortfolioValueUsdc,
+    overallNetGainUsdc: overallGainUsdc,
+    overallRoiPercent: overallGainPercent,
+} = usePortfolioMetrics();
 
 const cashPercentage = computed(() => {
     if (totalPortfolioValueUsdc.value <= 0) return 0;
     return Math.min(100, (availableCashUsdc.value / totalPortfolioValueUsdc.value) * 100);
 });
 
+const effectiveWinRate = computed(() => {
+    if (last24hStore.totalsAll.count > 0) {
+        return `${last24hStore.totalsAll.winRate.toFixed(1)}%`;
+    }
+    if (positionsStore.closedPositions.length > 0) {
+        return `${positionsStore.winRatePercent.toFixed(1)}%`;
+    }
+    return "—";
+});
+
 async function handleResetSimulation(): Promise<void> {
     if (
         !confirm(
-            `Voulez-vous réinitialiser le portefeuille de simulation à ${initialCapitalUsdc.value} $ et purger les positions actuelles ?`
+            `Voulez-vous réinitialiser le portefeuille de simulation à ${formatCurrency(initialCapitalUsdc.value)} et purger les positions actuelles ?`
         )
     ) {
         return;
@@ -60,7 +51,7 @@ async function handleResetSimulation(): Promise<void> {
     try {
         await metricsStore.resetSimulation();
         await positionsStore.fetchPositions();
-        await tradesStore.fetchTrades(1, 30);
+        await tradesStore.fetchTrades(1, 20);
     } finally {
         isResetting.value = false;
     }
@@ -69,20 +60,19 @@ async function handleResetSimulation(): Promise<void> {
 
 <template>
   <div class="space-y-4">
-    <!-- Alerte Portefeuille Vide si cash <= 5.0 USDC -->
+    <!-- Alerte Bouclier de Sécurité -->
     <div
       v-if="availableCashUsdc <= 5.0"
       class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
     >
       <div class="flex items-start gap-3">
-        <span class="text-xl">🛡️</span>
+        <AppIcon name="shield" :size="20" class="text-amber-500 mt-0.5" />
         <div>
           <h4 class="font-bold text-amber-600 dark:text-amber-400">
-            Bouclier de Sécurité Lotso Activé ({{ availableCashUsdc.toFixed(2) }} USDC restant)
+            Bouclier de Sécurité Activé ({{ availableCashUsdc.toFixed(2) }} USDC restant)
           </h4>
           <p class="text-slate-600 dark:text-slate-300 mt-0.5">
-            Le protocole sous-marin a <strong>suspendu tout nouvel ordre furtif</strong> pour préserver vos fonds.
-            Aucun trade supplémentaire ne sera répliqué tant que des positions ne sont pas vendues ou réinitialisées.
+            Tout nouvel ordre d'achat est suspendu tant que le cash disponible reste sous la réserve minimale.
           </p>
         </div>
       </div>
@@ -91,127 +81,128 @@ async function handleResetSimulation(): Promise<void> {
         type="button"
         @click="handleResetSimulation"
         :disabled="isResetting"
-        class="shrink-0 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3.5 py-2 rounded-xl transition text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+        class="shrink-0 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3.5 py-2 rounded-xl transition text-xs inline-flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
       >
-        <span>🔄</span> {{ isResetting ? 'Réinitialisation...' : 'Réinitialiser à 1 000 $' }}
+        <AppIcon name="refresh-cw" :size="14" :class="{ 'animate-spin': isResetting }" />
+        <span>
+          {{ isResetting ? "Réinitialisation..." : `Réinitialiser (${formatCurrency(initialCapitalUsdc, 0)})` }}
+        </span>
       </button>
     </div>
 
-    <!-- Bandeau Exécutif Bento (4 Cartes Modernes Minimalistes) -->
+    <!-- 4 Cartes Bento -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- 1. Valeur Totale du Portefeuille -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-blue-400 dark:hover:border-blue-500/40 transition-all flex flex-col justify-between">
+      <!-- 1. Valeur Totale -->
+      <div
+        class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-blue-400 dark:hover:border-blue-500/40 transition-all flex flex-col justify-between"
+      >
         <div>
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Valeur Portefeuille Total</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono font-semibold">
-              Base 1 000 $
-            </span>
+          <div class="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium truncate">Valeur Portefeuille</span>
+            <AppBadge variant="info" size="xs">
+              Base {{ formatCurrency(initialCapitalUsdc, 0) }}
+            </AppBadge>
           </div>
-          <div class="flex items-baseline gap-2.5">
-            <span class="text-3xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
-              ${{ totalPortfolioValueUsdc.toFixed(2) }}
-            </span>
+          <div class="text-3xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
+            {{ formatCurrency(totalPortfolioValueUsdc) }}
           </div>
         </div>
 
-        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs">
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2 text-xs">
           <span class="text-slate-500 dark:text-slate-400">Gain Net :</span>
-          <span
-            class="font-mono font-bold px-2 py-0.5 rounded-md"
-            :class="overallGainUsdc >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
-          >
-            {{ overallGainUsdc >= 0 ? '+' : '' }}${{ overallGainUsdc.toFixed(2) }} ({{ overallGainPercent >= 0 ? '+' : '' }}{{ overallGainPercent.toFixed(1) }}%)
-          </span>
+          <AppBadge :variant="overallGainUsdc >= 0 ? 'success' : 'danger'" size="xs" rounded="md">
+            {{ formatSignedCurrency(overallGainUsdc) }} ({{ formatSignedPercent(overallGainPercent) }})
+          </AppBadge>
         </div>
       </div>
 
-      <!-- 2. Cash Virtuel Disponible -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+      <!-- 2. Cash Disponible -->
+      <div
+        class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-500/40 transition-all flex flex-col justify-between"
+      >
         <div>
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Cash Disponible</span>
-            <span
-              :class="availableCashUsdc > 5 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
-              class="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
-            >
-              {{ availableCashUsdc > 5 ? 'PRÊT' : 'ÉPUISÉ' }}
-            </span>
+          <div class="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium truncate">Cash Disponible</span>
+            <AppBadge :variant="availableCashUsdc > 5 ? 'success' : 'danger'" size="xs">
+              {{ availableCashUsdc > 5 ? "Prêt" : "Épuisé" }}
+            </AppBadge>
           </div>
-          <div class="flex items-baseline gap-2">
-            <span
-              class="text-3xl font-bold font-mono tracking-tight"
-              :class="availableCashUsdc > 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
-            >
-              ${{ availableCashUsdc.toFixed(2) }}
-            </span>
+          <div
+            class="text-3xl font-bold font-mono tracking-tight"
+            :class="availableCashUsdc > 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+          >
+            {{ formatCurrency(availableCashUsdc) }}
           </div>
         </div>
 
         <div class="mt-4 space-y-1.5">
           <div class="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            <span>Trésorerie Libre</span>
-            <span class="font-bold text-slate-700 dark:text-slate-300">{{ cashPercentage.toFixed(0) }}% du portefeuille</span>
+            <span>Trésorerie libre</span>
+            <span class="font-bold text-slate-700 dark:text-slate-300">{{ cashPercentage.toFixed(0) }}%</span>
           </div>
           <div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
             <div
               class="bg-emerald-500 h-full rounded-full transition-all duration-500"
               :style="{ width: `${cashPercentage}%` }"
-            ></div>
+            />
           </div>
         </div>
       </div>
 
-      <!-- 3. Positions Actives & PnL Latent -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-sky-400 dark:hover:border-sky-500/40 transition-all flex flex-col justify-between">
+      <!-- 3. Positions en Cours -->
+      <div
+        class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-sky-400 dark:hover:border-sky-500/40 transition-all flex flex-col justify-between"
+      >
         <div>
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Positions en Cours</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono font-bold">
-              {{ positionsStore.positions.length }} MARCHÉS
-            </span>
+          <div class="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium truncate">Positions en Cours</span>
+            <AppBadge variant="neutral" size="xs">
+              {{ positionsStore.positions.length }} marchés
+            </AppBadge>
           </div>
-          <div class="flex items-baseline gap-2">
-            <span class="text-3xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
-              ${{ positionsStore.totalInvestedUsdc.toFixed(2) }}
-            </span>
+          <div class="text-3xl font-bold font-mono text-slate-900 dark:text-white tracking-tight">
+            {{ formatCurrency(positionsStore.totalInvestedUsdc) }}
           </div>
         </div>
 
-        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs">
-          <span class="text-slate-500 dark:text-slate-400">Plus-value Latente :</span>
-          <span
-            class="font-mono font-bold px-2 py-0.5 rounded-md"
-            :class="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2 text-xs">
+          <span class="text-slate-500 dark:text-slate-400">PnL latent :</span>
+          <AppBadge
+            :variant="positionsStore.totalUnrealizedPnlUsdc >= 0 ? 'success' : 'danger'"
+            size="xs"
+            rounded="md"
           >
-            {{ positionsStore.totalUnrealizedPnlUsdc >= 0 ? '+' : '' }}${{ positionsStore.totalUnrealizedPnlUsdc.toFixed(2) }}
-          </span>
+            {{ formatSignedCurrency(positionsStore.totalUnrealizedPnlUsdc) }}
+          </AppBadge>
         </div>
       </div>
 
-      <!-- 4. Efficacité Furtive Lotso & Win Rate -->
-      <div class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-rose-400 dark:hover:border-rose-500/40 transition-all flex flex-col justify-between">
+      <!-- 4. Efficacité & Win Rate -->
+      <div
+        class="bg-white dark:bg-[#121721] border border-slate-200/90 dark:border-slate-800/80 rounded-2xl p-5 shadow-xs hover:border-rose-400 dark:hover:border-rose-500/40 transition-all flex flex-col justify-between"
+      >
         <div>
-          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
-            <span class="font-medium">Efficacité Furtive Lotso</span>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 font-mono font-bold">
-              {{ metricsStore.metrics.activeTargetsCount }} CIBLES
-            </span>
+          <div class="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
+            <span class="font-medium truncate">Efficacité Lotso</span>
+            <AppBadge variant="brand" size="xs">
+              {{ metricsStore.metrics.activeTargetsCount }} cibles
+            </AppBadge>
           </div>
           <div class="flex items-baseline gap-2">
             <span class="text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tracking-tight">
-              {{ positionsStore.winRatePercent > 0 ? positionsStore.winRatePercent.toFixed(1) + '%' : '78.9%' }}
+              {{ effectiveWinRate }}
             </span>
             <span class="text-xs text-slate-500 dark:text-slate-400 font-mono font-semibold">Win Rate</span>
           </div>
         </div>
 
-        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs">
-          <span class="text-slate-500 dark:text-slate-400 font-mono">
-            {{ metricsStore.metrics.totalCopiedTrades }} ordres infiltrés ($ {{ metricsStore.metrics.totalTradedVolumeUsdc.toFixed(0) }} vol)
+        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2 text-[11px] font-mono">
+          <span class="text-slate-500 dark:text-slate-400 truncate">
+            {{ metricsStore.metrics.totalCopiedTrades }} ordres ({{ formatCurrency(metricsStore.metrics.totalTradedVolumeUsdc, 0) }})
           </span>
-          <span class="text-[11px] font-mono text-amber-600 dark:text-amber-400 font-medium">
-            🛡️ {{ metricsStore.metrics.totalRejectedTrades }} alertes radar
+          <span class="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1 shrink-0">
+            <AppIcon name="shield" :size="12" />
+            <span>{{ metricsStore.metrics.totalRejectedTrades }}</span>
           </span>
         </div>
       </div>
