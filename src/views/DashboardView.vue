@@ -173,9 +173,9 @@ onMounted(async () => {
     });
 
     wsClient.on("position:closed", (data) => {
-        const closed = data as { conditionId?: string };
+        const closed = data as { conditionId?: string; positionId?: string };
         if (closed?.conditionId) {
-            positionsStore.handlePositionClosed(closed.conditionId);
+            positionsStore.handlePositionClosed(closed.conditionId, undefined, closed.positionId);
             positionsStore.fetchClosedPositions();
             targetsStore.fetchTargets();
             last24hStore.loadInitial();

@@ -106,23 +106,23 @@ const {
     initialCapitalUsdc,
     availableCashUsdc,
     realizedPnlUsdc: totalRealizedPnlUsdc,
+    peakRealizedPnlUsdc,
     totalSettledPayoutUsdc,
     totalPortfolioValueUsdc,
     overallRoiPercent,
 } = usePortfolioMetrics();
 
 const sanctuarizedProfitUsdc = computed<number>(() => {
-    const pnl = totalRealizedPnlUsdc.value;
-    if (pnl <= 0) return 0;
+    const peak = peakRealizedPnlUsdc.value;
+    if (peak <= 0) return 0;
     const protectPercent = 100 - (configStore.config?.profitReinvestmentPercent ?? 50);
-    return (pnl * protectPercent) / 100;
+    return (peak * protectPercent) / 100;
 });
 
 const reinvestedProfitUsdc = computed<number>(() => {
     const pnl = totalRealizedPnlUsdc.value;
     if (pnl <= 0) return 0;
-    const reinvestPercent = configStore.config?.profitReinvestmentPercent ?? 50;
-    return (pnl * reinvestPercent) / 100;
+    return Math.max(0, pnl - sanctuarizedProfitUsdc.value);
 });
 
 const maxPotentialNetProfit = computed<number>(() => {

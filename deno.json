@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "exports": "./src/main.ts",
     "imports": {
-        "@lotso-trading/shared": "npm:@lotso-trading/shared@1.0.0-develop.6",
+        "@lotso-trading/shared": "npm:@lotso-trading/shared@1.0.0-develop.7",
         "vue": "npm:vue@^3.5.45",
         "pinia": "npm:pinia@^4.1.0",
         "lucide-vue-next": "npm:lucide-vue-next@^1.0.0",

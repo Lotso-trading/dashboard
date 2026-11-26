@@ -127,11 +127,15 @@ export const usePositionsStore = defineStore("positions", () => {
 
     function handlePositionUpdated(updated: OpenPosition): void {
         if (updated.status === "CLOSED" || updated.totalShares <= 0) {
-            handlePositionClosed(updated.conditionId, updated);
+            handlePositionClosed(updated.conditionId, updated, updated.id);
             return;
         }
 
-        const index = positions.value.findIndex((p) => p.conditionId === updated.conditionId);
+        const index = positions.value.findIndex(
+            (p) =>
+                p.id === updated.id ||
+                (p.conditionId === updated.conditionId && p.assetAddress === updated.assetAddress)
+        );
         if (index !== -1) {
             positions.value[index] = updated;
         } else {
@@ -140,11 +144,18 @@ export const usePositionsStore = defineStore("positions", () => {
         lastRefreshedAt.value = Date.now();
     }
 
-    function handlePositionClosed(conditionId: string, closedPos?: OpenPosition): void {
-        positions.value = positions.value.filter((p) => p.conditionId !== conditionId);
+    function handlePositionClosed(
+        conditionId: string,
+        closedPos?: OpenPosition,
+        positionId?: string
+    ): void {
+        const targetPosId = positionId || closedPos?.id;
+        positions.value = targetPosId
+            ? positions.value.filter((p) => p.id !== targetPosId)
+            : positions.value.filter((p) => p.conditionId !== conditionId);
         if (closedPos) {
-            const existingIdx = closedPositions.value.findIndex(
-                (p) => p.conditionId === conditionId
+            const existingIdx = closedPositions.value.findIndex((p) =>
+                targetPosId ? p.id === targetPosId : p.conditionId === conditionId
             );
             if (existingIdx !== -1) {
                 closedPositions.value[existingIdx] = closedPos;

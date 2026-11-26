@@ -43,6 +43,13 @@ export function usePortfolioMetrics() {
         return last24hStore.totalsAll.netPnl;
     });
 
+    const peakRealizedPnlUsdc = computed<number>(() => {
+        if (typeof metricsStore.metrics.peakRealizedPnlUsdc === "number") {
+            return Math.max(0, metricsStore.metrics.peakRealizedPnlUsdc, realizedPnlUsdc.value);
+        }
+        return Math.max(0, realizedPnlUsdc.value);
+    });
+
     const unrealizedPnlUsdc = computed<number>(() => {
         if (positionsStore.positions.length > 0) {
             return positionsStore.totalUnrealizedPnlUsdc;
@@ -86,6 +93,7 @@ export function usePortfolioMetrics() {
     return {
         initialCapitalUsdc,
         realizedPnlUsdc,
+        peakRealizedPnlUsdc,
         unrealizedPnlUsdc,
         totalSettledPayoutUsdc,
         availableCashUsdc,

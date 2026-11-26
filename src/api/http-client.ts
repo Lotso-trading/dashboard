@@ -33,6 +33,7 @@ export interface GlobalMetrics {
     currentPositionsValueUsdc: number;
     unrealizedPnlUsdc: number;
     realizedPnlUsdc?: number;
+    peakRealizedPnlUsdc?: number;
     totalSettledPayoutUsdc?: number;
     availableCashUsdc?: number;
     totalPortfolioValueUsdc?: number;

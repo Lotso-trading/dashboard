@@ -459,3 +459,73 @@ Deno.test("getClosedPositionOutcome - distingue correctement RESOLVED_WIN/LOSS, 
         }
     );
 });
+
+Deno.test("usePortfolioMetrics & usePositionsStore - expose peakRealizedPnlUsdc et retire uniquement le positionId clôturé", () => {
+    setActivePinia(createPinia());
+
+    const metricsStore = useMetricsStore();
+    const positionsStore = usePositionsStore();
+
+    metricsStore.metrics = {
+        ...metricsStore.metrics,
+        realizedPnlUsdc: 180,
+        peakRealizedPnlUsdc: 220,
+        availableCashUsdc: 300,
+    };
+
+    const pm = usePortfolioMetrics();
+    assertEquals(pm.peakRealizedPnlUsdc.value, 220);
+
+    positionsStore.positions = [
+        {
+            id: "pos_dup_a",
+            conditionId: "0xdup_cond",
+            assetAddress: "111",
+            marketSlug: "m",
+            marketQuestion: "Q?",
+            outcomeLabel: "Yes",
+            status: "OPEN",
+            totalShares: 10,
+            avgEntryPrice: 0.5,
+            totalInvestedUsdc: 5,
+            currentMarketPrice: 0.5,
+            currentMarketValueUsdc: 5,
+            unrealizedPnlUsdc: 0,
+            unrealizedPnlPercent: 0,
+            targetAddress: "0x2222222222222222222222222222222222222222",
+            openedAt: Date.now(),
+            updatedAt: Date.now(),
+        },
+        {
+            id: "pos_dup_b",
+            conditionId: "0xdup_cond",
+            assetAddress: "222",
+            marketSlug: "m",
+            marketQuestion: "Q?",
+            outcomeLabel: "No",
+            status: "OPEN",
+            totalShares: 20,
+            avgEntryPrice: 0.5,
+            totalInvestedUsdc: 10,
+            currentMarketPrice: 0.5,
+            currentMarketValueUsdc: 10,
+            unrealizedPnlUsdc: 0,
+            unrealizedPnlPercent: 0,
+            targetAddress: "0x2222222222222222222222222222222222222222",
+            openedAt: Date.now(),
+            updatedAt: Date.now(),
+        },
+    ];
+
+    const firstPos = positionsStore.positions[0];
+    assertEquals(firstPos !== undefined, true);
+    if (firstPos) {
+        positionsStore.handlePositionClosed(
+            "0xdup_cond",
+            { ...firstPos, status: "CLOSED" },
+            "pos_dup_a"
+        );
+    }
+    assertEquals(positionsStore.positions.length, 1);
+    assertEquals(positionsStore.positions[0]?.id, "pos_dup_b");
+});
