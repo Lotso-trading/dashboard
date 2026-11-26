@@ -60,6 +60,13 @@ const statusOptions = computed(() => [
         activeClass:
             "bg-white text-rose-600 shadow-xs dark:bg-slate-800 dark:text-rose-400 font-semibold",
     },
+    {
+        value: "CANCELLED" as PositionFilterStatus,
+        label: "Annulés",
+        count: activeWindowTotals.value.cancelledCount ?? 0,
+        activeClass:
+            "bg-white text-slate-700 shadow-xs dark:bg-slate-800 dark:text-slate-200 font-semibold",
+    },
 ]);
 
 onMounted(async () => {

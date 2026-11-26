@@ -7,7 +7,7 @@ import { isClosedPositionWin } from "../utils/closed-outcome.ts";
 import { toMs } from "../utils/positions-summary.ts";
 
 export type TimeWindowScope = "24H" | "ALL_TIME";
-export type PositionFilterStatus = "ALL" | "WIN" | "LOSS";
+export type PositionFilterStatus = "ALL" | "WIN" | "LOSS" | "CANCELLED";
 
 export function createEmptyClosedTotals(): ClosedPositionsTotals {
     return {
@@ -21,6 +21,7 @@ export function createEmptyClosedTotals(): ClosedPositionsTotals {
         avgEntryPrice: 0,
         winCount: 0,
         lossCount: 0,
+        cancelledCount: 0,
         winRate: 0,
         roiPercent: 0,
     };
@@ -130,11 +131,13 @@ export const useLast24hSummaryStore = defineStore("last24hSummary", () => {
     }
 
     function handlePositionClosed(closedPos: OpenPosition): void {
+        const isCancelled = closedPos.closeReason === "RESOLVED_CANCELLED";
         const isWin = isClosedPositionWin(closedPos);
         const matchesStatus =
             filterStatus.value === "ALL" ||
-            (filterStatus.value === "WIN" && isWin) ||
-            (filterStatus.value === "LOSS" && !isWin);
+            (filterStatus.value === "CANCELLED" && isCancelled) ||
+            (filterStatus.value === "WIN" && !isCancelled && isWin) ||
+            (filterStatus.value === "LOSS" && !isCancelled && !isWin);
 
         if (!matchesStatus) return;
 

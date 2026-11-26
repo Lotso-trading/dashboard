@@ -11,6 +11,7 @@ export interface ClosedPositionsTotals {
     avgEntryPrice: number;
     winCount: number;
     lossCount: number;
+    cancelledCount: number;
     winRate: number;
     roiPercent: number;
 }
@@ -75,7 +76,11 @@ export function calculatePositionsSummary(positions: OpenPosition[]): ClosedPosi
     const lossCount = positions.filter(
         (p: OpenPosition): boolean => p.closeReason === "RESOLVED_LOSS"
     ).length;
-    const winRate = count > 0 ? (winCount / count) * 100 : 0;
+    const cancelledCount = positions.filter(
+        (p: OpenPosition): boolean => p.closeReason === "RESOLVED_CANCELLED"
+    ).length;
+    const decidedCount = winCount + lossCount;
+    const winRate = decidedCount > 0 ? (winCount / decidedCount) * 100 : 0;
     const roiPercent = totalInvested > 0 ? (netPnl / totalInvested) * 100 : 0;
 
     return {
@@ -89,6 +94,7 @@ export function calculatePositionsSummary(positions: OpenPosition[]): ClosedPosi
         avgEntryPrice,
         winCount,
         lossCount,
+        cancelledCount,
         winRate,
         roiPercent,
     };

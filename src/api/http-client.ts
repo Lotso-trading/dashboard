@@ -18,7 +18,7 @@ import type {
 export interface ClosedPositionsRequestParams {
     page?: number;
     limit?: number;
-    status?: "ALL" | "WIN" | "LOSS";
+    status?: "ALL" | "WIN" | "LOSS" | "CANCELLED";
     since?: number;
 }
 

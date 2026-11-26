@@ -88,6 +88,7 @@ const totals24hFixture: ClosedPositionsTotals = {
     avgEntryPrice: 0.5,
     winCount: 1,
     lossCount: 1,
+    cancelledCount: 0,
     winRate: 50,
     roiPercent: 11.1,
 };
@@ -103,6 +104,7 @@ const totalsAllFixture: ClosedPositionsTotals = {
     avgEntryPrice: 0.52,
     winCount: 95,
     lossCount: 50,
+    cancelledCount: 0,
     winRate: 65.5,
     roiPercent: 15.0,
 };

@@ -200,3 +200,26 @@ Deno.test("filterPositionsLast24h + calculatePositionsSummary - calcule fidèlem
     assertEquals(summary24h.netPnl, 50);
     assertEquals(summary24h.roiPercent, 100);
 });
+
+Deno.test("calculatePositionsSummary - exclut RESOLVED_CANCELLED du Win Rate tout en conservant Payout et PnL", () => {
+    const cancelledPos: OpenPosition = {
+        ...mockLossPosition1,
+        id: "pos_cancelled_5050",
+        closeReason: "RESOLVED_CANCELLED",
+        totalShares: 20.92,
+        avgEntryPrice: 0.5813,
+        totalInvestedUsdc: 12.16,
+        settledPayoutUsdc: 10.46,
+        realizedPnlUsdc: -1.7,
+        currentMarketPrice: 0.5,
+    };
+
+    const summary = calculatePositionsSummary([mockWinPosition1, mockLossPosition1, cancelledPos]);
+    assertEquals(summary.count, 3);
+    assertEquals(summary.winCount, 1);
+    assertEquals(summary.lossCount, 1);
+    assertEquals(summary.cancelledCount, 1);
+    // Win Rate basé sur 1W / (1W + 1L) = 50% (sans compter la position annulée)
+    assertEquals(summary.winRate, 50);
+    assertEquals(Math.round(summary.netPnl * 100) / 100, 28.3); // 60 - 30 - 1.7
+});

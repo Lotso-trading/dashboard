@@ -225,6 +225,7 @@ Deno.test("usePeriodSummaryStore - change la granularité, le tri et la paginati
             tradesCount: 7,
             winCount: 4,
             lossCount: 1,
+            cancelledCount: 0,
             winRate: 80,
             totalInvested: 200,
             totalPayout: 260,
@@ -256,6 +257,7 @@ Deno.test("usePeriodSummaryStore - change la granularité, le tri et la paginati
                     avgEntryPrice: 0.5,
                     winCount: 4,
                     lossCount: 1,
+                    cancelledCount: 0,
                     winRate: 80,
                     roiPercent: 30,
                 },
@@ -442,4 +444,18 @@ Deno.test("getClosedPositionOutcome - distingue correctement RESOLVED_WIN/LOSS, 
         variant: "danger",
         icon: "trending-down",
     });
+    assertEquals(
+        isClosedPositionWin({ closeReason: "RESOLVED_CANCELLED", realizedPnlUsdc: 2 }),
+        false
+    );
+    assertEquals(
+        getClosedPositionOutcome({ closeReason: "RESOLVED_CANCELLED", realizedPnlUsdc: -1.7 }),
+        {
+            isWin: false,
+            isCancelled: true,
+            label: "Annulé (50/50)",
+            variant: "neutral",
+            icon: "ban",
+        }
+    );
 });

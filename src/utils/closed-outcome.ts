@@ -2,18 +2,21 @@ import type { OpenPosition } from "@lotso-trading/shared";
 
 export interface ClosedPositionOutcomeDisplay {
     readonly isWin: boolean;
+    readonly isCancelled?: boolean;
     readonly label: string;
-    readonly variant: "success" | "danger";
-    readonly icon: "trophy" | "x-circle" | "trending-up" | "trending-down";
+    readonly variant: "success" | "danger" | "neutral";
+    readonly icon: "trophy" | "x-circle" | "trending-up" | "trending-down" | "ban";
 }
 
 /**
  * Règle canonique partagée avec l'API : une clôture est gagnante si `RESOLVED_WIN`
  * ou si son PnL réalisé (`realizedPnlUsdc`) est strictement positif (`WHALE_SELL` / `MANUAL`).
+ * Les marchés annulés (`RESOLVED_CANCELLED` / 50-50) sont neutres (ni victoire ni défaite).
  */
 export function isClosedPositionWin(
     pos: Pick<OpenPosition, "closeReason" | "realizedPnlUsdc">
 ): boolean {
+    if (pos.closeReason === "RESOLVED_CANCELLED") return false;
     if (pos.closeReason === "RESOLVED_WIN") return true;
     return Number(pos.realizedPnlUsdc ?? 0) > 0;
 }
@@ -21,6 +24,16 @@ export function isClosedPositionWin(
 export function getClosedPositionOutcome(
     pos: Pick<OpenPosition, "closeReason" | "realizedPnlUsdc">
 ): ClosedPositionOutcomeDisplay {
+    if (pos.closeReason === "RESOLVED_CANCELLED") {
+        return {
+            isWin: false,
+            isCancelled: true,
+            label: "Annulé (50/50)",
+            variant: "neutral",
+            icon: "ban",
+        };
+    }
+
     const isWin = isClosedPositionWin(pos);
 
     if (pos.closeReason === "RESOLVED_WIN") {

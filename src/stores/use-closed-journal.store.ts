@@ -4,7 +4,10 @@ import { ref } from "vue";
 import { api } from "../api/http-client.ts";
 import { DEFAULT_PAGE_SIZE } from "../composables/use-pagination.ts";
 import { isClosedPositionWin } from "../utils/closed-outcome.ts";
-import { createEmptyClosedTotals } from "./use-last-24h-summary.store.ts";
+import {
+    createEmptyClosedTotals,
+    type PositionFilterStatus,
+} from "./use-last-24h-summary.store.ts";
 
 export const useClosedJournalStore = defineStore("closedJournal", () => {
     const items = ref<OpenPosition[]>([]);
@@ -13,15 +16,12 @@ export const useClosedJournalStore = defineStore("closedJournal", () => {
     const pageSize = ref(DEFAULT_PAGE_SIZE);
     const totalPages = ref(1);
     const isLoading = ref(false);
-    const filterStatus = ref<"ALL" | "WIN" | "LOSS">("ALL");
+    const filterStatus = ref<PositionFilterStatus>("ALL");
     const totals = ref<ClosedPositionsTotals>(createEmptyClosedTotals());
     const unfilteredTotals = ref<ClosedPositionsTotals>(createEmptyClosedTotals());
     const unfilteredCount = ref(0);
 
-    async function loadPage(
-        targetPage = page.value,
-        status?: "ALL" | "WIN" | "LOSS"
-    ): Promise<void> {
+    async function loadPage(targetPage = page.value, status?: PositionFilterStatus): Promise<void> {
         if (status !== undefined) {
             filterStatus.value = status;
         }
@@ -51,7 +51,7 @@ export const useClosedJournalStore = defineStore("closedJournal", () => {
         }
     }
 
-    async function loadInitial(status: "ALL" | "WIN" | "LOSS" = "ALL"): Promise<void> {
+    async function loadInitial(status: PositionFilterStatus = "ALL"): Promise<void> {
         await loadPage(1, status);
     }
 
@@ -64,16 +64,18 @@ export const useClosedJournalStore = defineStore("closedJournal", () => {
         await loadPage(1);
     }
 
-    async function setFilterStatus(status: "ALL" | "WIN" | "LOSS"): Promise<void> {
+    async function setFilterStatus(status: PositionFilterStatus): Promise<void> {
         await loadPage(1, status);
     }
 
     function handlePositionClosed(closedPos: OpenPosition): void {
+        const isCancelled = closedPos.closeReason === "RESOLVED_CANCELLED";
         const isWin = isClosedPositionWin(closedPos);
         const matchesFilter =
             filterStatus.value === "ALL" ||
-            (filterStatus.value === "WIN" && isWin) ||
-            (filterStatus.value === "LOSS" && !isWin);
+            (filterStatus.value === "CANCELLED" && isCancelled) ||
+            (filterStatus.value === "WIN" && !isCancelled && isWin) ||
+            (filterStatus.value === "LOSS" && !isCancelled && !isWin);
 
         if (!matchesFilter) return;
 

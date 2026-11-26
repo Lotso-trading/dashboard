@@ -22,11 +22,15 @@ export function computeTargetPerformance(
     const closedForTarget = closedPositions.filter((p) => p.targetAddress?.toLowerCase() === addr);
 
     const localWins = closedForTarget.filter(
-        (p) => p.closeReason === "RESOLVED_WIN" || (p.realizedPnlUsdc ?? 0) > 0
+        (p) =>
+            p.closeReason !== "RESOLVED_CANCELLED" &&
+            (p.closeReason === "RESOLVED_WIN" || (p.realizedPnlUsdc ?? 0) > 0)
     ).length;
 
     const localLosses = closedForTarget.filter(
-        (p) => p.closeReason === "RESOLVED_LOSS" || (p.realizedPnlUsdc ?? 0) < 0
+        (p) =>
+            p.closeReason !== "RESOLVED_CANCELLED" &&
+            (p.closeReason === "RESOLVED_LOSS" || (p.realizedPnlUsdc ?? 0) < 0)
     ).length;
 
     const localPnl = closedForTarget.reduce((acc, p) => acc + (p.realizedPnlUsdc ?? 0), 0);

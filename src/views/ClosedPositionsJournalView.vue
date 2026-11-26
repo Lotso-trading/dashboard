@@ -45,6 +45,13 @@ const filterOptions = computed(() => [
         activeClass:
             "bg-white text-rose-600 shadow-xs dark:bg-slate-800 dark:text-rose-400 font-semibold",
     },
+    {
+        value: "CANCELLED" as const,
+        label: "Annulés",
+        count: referenceTotals.value.cancelledCount ?? 0,
+        activeClass:
+            "bg-white text-slate-700 shadow-xs dark:bg-slate-800 dark:text-slate-200 font-semibold",
+    },
 ]);
 
 onMounted(async () => {
@@ -234,7 +241,12 @@ onMounted(async () => {
                     {{ getClosedPositionOutcome(pos).label }}
                   </AppBadge>
 
-                  <template v-if="pos.closeReason === 'RESOLVED_WIN'">
+                  <template
+                    v-if="
+                      pos.closeReason === 'RESOLVED_WIN' ||
+                      (pos.closeReason === 'RESOLVED_CANCELLED' && (pos.settledPayoutUsdc ?? 0) > 0)
+                    "
+                  >
                     <a
                       v-if="pos.settleTxHash && pos.settleTxHash.startsWith('0x')"
                       :href="'https://polygonscan.com/tx/' + pos.settleTxHash"
